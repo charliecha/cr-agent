@@ -6,10 +6,16 @@ Flow:
     1. diff_reader
     2. ParallelAgent([android_reviewer, backend_reviewer])
     3. summarizer (LlmAgent with output_schema=CRReport)
+
+NOTE: SequentialAgent and ParallelAgent are deprecated in google-adk 2.x
+in favor of Workflow+Edge API, but the Workflow API has known issues with
+LlmAgent pipelines in 2.2.0 (context overflow, session state propagation).
+Revisit when google-adk stabilizes the Workflow+LlmAgent integration.
 """
 
 import os
-from google.adk.agents import LlmAgent, SequentialAgent, ParallelAgent
+import warnings
+from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 
 from shared.schemas import CRReport
@@ -18,11 +24,14 @@ from adk.agents.android_reviewer import android_reviewer_agent
 from adk.agents.backend_reviewer import backend_reviewer_agent
 from shared.model_config import litellm_kwargs
 
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    from google.adk.agents import SequentialAgent, ParallelAgent
 
-_parallel_reviewers = ParallelAgent(
-    name="parallel_reviewers",
-    sub_agents=[android_reviewer_agent, backend_reviewer_agent],
-)
+    _parallel_reviewers = ParallelAgent(
+        name="parallel_reviewers",
+        sub_agents=[android_reviewer_agent, backend_reviewer_agent],
+    )
 
 _summarizer = LlmAgent(
     name="cr_summarizer",
@@ -47,7 +56,9 @@ Rules:
 """,
 )
 
-root_agent = SequentialAgent(
-    name="cr_root",
-    sub_agents=[diff_reader_agent, _parallel_reviewers, _summarizer],
-)
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    root_agent = SequentialAgent(
+        name="cr_root",
+        sub_agents=[diff_reader_agent, _parallel_reviewers, _summarizer],
+    )
