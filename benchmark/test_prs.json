@@ -1,0 +1,27 @@
+[
+  {
+    "id": "cross_file_logic_bug",
+    "description": "方法签名改变但调用方未更新：UserRepository.getUser(id) 改为 getUser(id, includeDeleted)，调用方仍用旧签名",
+    "known_bugs": [
+      { "file": "app/repository/UserRepository.kt", "line": 24, "category": "logic_bug" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/cross_file_logic_bug"
+  },
+  {
+    "id": "single_file_null_deref",
+    "description": "Kotlin 中对可空返回值直接用 !! 解引用，没有 null 检查",
+    "known_bugs": [
+      { "file": "app/ui/ProfileFragment.kt", "line": 42, "category": "null_deref" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/single_file_null_deref"
+  },
+  {
+    "id": "no_bug_clean_pr",
+    "description": "正常的重构 PR，只是提取了一个辅助方法，没有 bug",
+    "known_bugs": [],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/no_bug_clean_pr"
+  }
+]

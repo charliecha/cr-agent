@@ -1,0 +1,13 @@
+--- a/app/utils/StringUtils.kt
++++ b/app/utils/StringUtils.kt
+@@ -1,6 +1,8 @@ package app.utils
+ class StringUtils {
+-    fun formatName(s: String): String {
+-        val lower = s.lowercase()
+-        return lower[0].uppercaseChar() + lower.substring(1)
++    // Extracted helper — pure refactor, no logic change
++    fun capitalize(s: String): String {
++        if (s.isEmpty()) return s
++        return s[0].uppercaseChar() + s.substring(1).lowercase()
+     }
+ }

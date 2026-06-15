@@ -1,0 +1,11 @@
+--- a/app/repository/UserRepository.kt
++++ b/app/repository/UserRepository.kt
+@@ -10,7 +10,7 @@ class UserRepository {
+     )
+
+-    fun getUser(id: Int): User? {
+-        return users.find { it.id == id }
++    fun getUser(id: Int, includeDeleted: Boolean = false): User? {
++        return users.find { it.id == id && (includeDeleted || !it.deleted) }
+     }
+ }

@@ -1,0 +1,10 @@
+--- a/app/ui/ProfileFragment.kt
++++ b/app/ui/ProfileFragment.kt
+@@ -8,7 +8,8 @@ class ProfileFragment {
+     fun loadProfile(userId: Int) {
+         val userName = repo.findUserName(userId)
+-        showName(userName)
++        val uppercased = userName!!.uppercase()
++        showName(uppercased)
+     }
+ }
