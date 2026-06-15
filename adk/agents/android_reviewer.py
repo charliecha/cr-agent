@@ -29,7 +29,6 @@ def _grep_tool(repo_root: str, pattern: str, file_glob: str = "**/*") -> str:
 android_reviewer_agent = LlmAgent(
     name="android_reviewer",
     model=LiteLlm(model=os.environ["CR_MODEL"], **litellm_kwargs()),
-    output_schema=AndroidReviewResult,
     output_key="android_findings",
     tools=[FunctionTool(_file_read_tool), FunctionTool(_grep_tool)],
     instruction="""\
@@ -41,10 +40,14 @@ Review only Kotlin/Java hunks for Android-specific problems:
 - Null safety issues (unsafe !! operator, Java interop nullability)
 - Resource leaks (Cursor, Stream, Bitmap not closed)
 
+RULE: If any method/function signature changes (new/removed/renamed parameter),
+you MUST call grep to find all callers before concluding there is no bug.
+
 Use file_read and grep to look up callers or class definitions when needed.
 Skip style, formatting, and non-Android issues.
-If there are no Kotlin/Java hunks, return {"findings": []}.
+If there are no Kotlin/Java hunks, output: {"findings": []}
 
-Output JSON: { "findings": [ { "file": ..., "line_start": ..., "line_end": ..., "severity": ..., "category": ..., "description": ..., "suggestion": ... } ] }
+After completing all tool calls, output a JSON object:
+{ "findings": [ { "file": ..., "line_start": ..., "line_end": ..., "severity": "critical"|"warning"|"info", "category": ..., "description": ..., "suggestion": ... } ] }
 """,
 )

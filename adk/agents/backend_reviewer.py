@@ -29,7 +29,6 @@ def _grep_tool(repo_root: str, pattern: str, file_glob: str = "**/*") -> str:
 backend_reviewer_agent = LlmAgent(
     name="backend_reviewer",
     model=LiteLlm(model=os.environ["CR_MODEL"], **litellm_kwargs()),
-    output_schema=BackendReviewResult,
     output_key="backend_findings",
     tools=[FunctionTool(_file_read_tool), FunctionTool(_grep_tool)],
     instruction="""\
@@ -43,10 +42,14 @@ Review only Python/Go/TypeScript hunks for backend-specific problems:
 - API contract mismatches (field renamed or type changed on one side only)
 - Unhandled error returns (especially in Go)
 
+RULE: If any method/function signature changes (new/removed/renamed parameter),
+you MUST call grep to find all callers before concluding there is no bug.
+
 Use file_read and grep to look up callers, schema definitions, or route handlers when needed.
 Skip style, formatting, and Android issues.
-If there are no Python/Go/TypeScript hunks, return {"findings": []}.
+If there are no Python/Go/TypeScript hunks, output: {"findings": []}
 
-Output JSON: { "findings": [ { "file": ..., "line_start": ..., "line_end": ..., "severity": ..., "category": ..., "description": ..., "suggestion": ... } ] }
+After completing all tool calls, output a JSON object:
+{ "findings": [ { "file": ..., "line_start": ..., "line_end": ..., "severity": "critical"|"warning"|"info", "category": ..., "description": ..., "suggestion": ... } ] }
 """,
 )
