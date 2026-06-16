@@ -115,6 +115,17 @@
     "repo_path": "benchmark/fixtures/missing_auth_offscreen"
   },
   {
+    "id": "cached_stale_read",
+    "description": "diff 只新增 ProductService（@Cacheable + @CacheEvict，写法完全正确），但 CacheConfig 里 expireAfterWrite(0) 使缓存永不失效，价格更新后 @CacheEvict 按 productId 清除，但 key 包含 discountRate 参数导致 evict 无法命中正确 cache entry，用户永远拿到旧价格。bug 完全在 diff 之外的 CacheConfig.java。",
+    "known_bugs": [
+      { "file": "src/main/java/com/example/config/CacheConfig.java", "line": 16, "category": "logic_bug" },
+      { "file": "src/main/java/com/example/service/ProductService.java", "line": 17, "category": "logic_bug" },
+      { "file": "src/main/java/com/example/service/ProductService.java", "line": 17, "category": "data_contract_mismatch" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/cached_stale_read"
+  },
+  {
     "id": "java_sql_injection",
     "description": "Spring Boot Java：searchUsers() 把用户输入直接拼接进 SQL 字符串，未使用 PreparedStatement 占位符，存在 SQL 注入漏洞",
     "known_bugs": [

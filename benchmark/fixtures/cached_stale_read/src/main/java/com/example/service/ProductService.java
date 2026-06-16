@@ -1,0 +1,27 @@
+package com.example.service;
+
+import com.example.repository.ProductRepository;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.stereotype.Service;
+
+@Service
+public class ProductService {
+
+    private final ProductRepository repo;
+
+    public ProductService(ProductRepository repo) {
+        this.repo = repo;
+    }
+
+    @Cacheable("products")
+    public double getDiscountedPrice(long productId, double discountRate) {
+        double base = repo.findPriceById(productId);
+        return base * (1 - discountRate);
+    }
+
+    @CacheEvict(value = "products", key = "#productId")
+    public void updatePrice(long productId, double newPrice) {
+        repo.updatePrice(productId, newPrice);
+    }
+}
