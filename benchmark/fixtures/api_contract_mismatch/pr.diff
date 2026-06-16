@@ -1,0 +1,20 @@
+--- a/backend/api/OrderController.kt
++++ b/backend/api/OrderController.kt
+@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
+ @Serializable
+ data class OrderResponse(
+     val orderId: String,
+-    val email: String,
++    val customerEmail: String,
+     val totalAmount: Double,
+     val status: String,
+ )
+@@ -14,7 +14,7 @@ class OrderController {
+     fun getOrderById(id: String): OrderResponse {
+         return OrderResponse(
+             orderId = id,
+-            email = "user@example.com",
++            customerEmail = "user@example.com",
+             totalAmount = 99.99,
+             status = "pending"
+         )

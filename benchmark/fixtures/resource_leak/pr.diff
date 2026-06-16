@@ -1,0 +1,44 @@
+--- a/app/data/ContactRepository.kt
++++ b/app/data/ContactRepository.kt
+@@ -1,6 +1,7 @@
+ package app.data
+
+ import android.content.ContentResolver
++import android.database.Cursor
+ import android.net.Uri
+ import android.provider.ContactsContract
+
+@@ -10,19 +11,27 @@ class ContactRepository(private val contentResolver: ContentResolver) {
+
+-    fun loadContacts(nameFilter: String): List<Contact> {
++    // New implementation: query contacts with optional name filter
++    fun loadContacts(nameFilter: String): List<Contact> {
+         val uri: Uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+         val projection = arrayOf(
+             ContactsContract.CommonDataKinds.Phone._ID,
+             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+             ContactsContract.CommonDataKinds.Phone.NUMBER,
+         )
+-        val cursor = contentResolver.query(uri, projection, null, null, null)
++        val selection = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?"
++        val selectionArgs = arrayOf("%$nameFilter%")
++
++        val cursor: Cursor? = contentResolver.query(uri, projection, selection, selectionArgs, null)
++
+         val contacts = mutableListOf<Contact>()
+-        cursor?.forEach { c ->
+-            contacts.add(Contact(c.getLong(0), c.getString(1), c.getString(2)))
++        if (cursor != null && cursor.moveToFirst()) {
++            do {
++                val id = cursor.getLong(0)
++                val name = cursor.getString(1)
++                val phone = cursor.getString(2)
++                contacts.add(Contact(id, name, phone))
++            } while (cursor.moveToNext())
+         }
++        // cursor?.close() omitted — resource leak
+         return contacts
+     }
+
++    fun loadAllContacts(): List<Contact> = loadContacts("")
+ }

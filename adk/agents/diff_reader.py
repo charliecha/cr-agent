@@ -28,7 +28,6 @@ class DiffSummary(BaseModel):
 diff_reader_agent = LlmAgent(
     name="diff_reader",
     model=LiteLlm(model=os.environ["CR_MODEL"], **litellm_kwargs()),
-    output_schema=DiffSummary,
     output_key="diff_summary",
     instruction="""\
 You receive a unified diff in the message.

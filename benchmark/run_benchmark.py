@@ -6,6 +6,7 @@ Usage:
     python -m benchmark.run_benchmark [--output results/run.json]
 """
 
+import os
 import json
 import time
 import subprocess
@@ -15,8 +16,12 @@ from typing import Any
 
 import click
 from pydantic import ValidationError
+from dotenv import load_dotenv
 
 from shared.schemas import CRReport
+
+# Load .env so ADK agents can access CR_MODEL at import time
+load_dotenv()
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 TEST_PRS = json.loads((Path(__file__).parent / "test_prs.json").read_text())
@@ -33,12 +38,27 @@ def run_framework(framework: str, fixture: dict) -> dict:
     module = "deep_agents.run" if framework == "deep_agents" else "adk.run"
 
     start = time.monotonic()
-    proc = subprocess.run(
-        [sys.executable, "-m", module, "--pr", diff_path, "--repo", repo_path, "--output", "-"],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", module, "--pr", diff_path, "--repo", repo_path, "--output", "-"],
+            capture_output=True,
+            text=True,
+            timeout=150,
+        )
+    except subprocess.TimeoutExpired:
+        elapsed = time.monotonic() - start
+        return {
+            "framework": framework,
+            "fixture_id": fixture["id"],
+            "latency_seconds": round(elapsed, 2),
+            "output_valid_json": False,
+            "findings_count": 0,
+            "true_positives": 0,
+            "false_positives": 0,
+            "expected_bugs": len(fixture["known_bugs"]),
+            "verdict": "timeout",
+            "stderr": f"subprocess killed after 150s",
+        }
     elapsed = time.monotonic() - start
 
     output_valid = False

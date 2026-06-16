@@ -438,6 +438,7 @@ dependencies = [
     { name = "litellm" },
     { name = "pydantic" },
     { name = "pygithub" },
+    { name = "python-dotenv" },
     { name = "python-gitlab" },
 ]
 
@@ -460,6 +461,7 @@ requires-dist = [
     { name = "pygithub", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
+    { name = "python-dotenv", specifier = ">=1.0" },
     { name = "python-gitlab", specifier = ">=4.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
 ]

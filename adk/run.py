@@ -70,7 +70,11 @@ async def _run_adk(pr: str, repo: str) -> CRReport:
 def main(pr: str, repo: str, post_comments: bool, output: str):
     click.echo(f"[adk] Reviewing {pr} ...", err=True)
 
-    report = asyncio.run(_run_adk(pr, repo))
+    try:
+        report = asyncio.run(asyncio.wait_for(_run_adk(pr, repo), timeout=120))
+    except TimeoutError:
+        click.echo("[adk] ERROR: timed out after 120s", err=True)
+        raise SystemExit(1)
 
     report_json = report.model_dump_json(indent=2)
     if output == "-":

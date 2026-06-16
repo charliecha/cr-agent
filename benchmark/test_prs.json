@@ -23,5 +23,48 @@
     "known_bugs": [],
     "pr_url": "LOCAL",
     "repo_path": "benchmark/fixtures/no_bug_clean_pr"
+  },
+  {
+    "id": "resource_leak",
+    "description": "Android Cursor 未关闭：loadContacts() 查询后未调用 cursor.close()，导致资源泄漏",
+    "known_bugs": [
+      { "file": "app/data/ContactRepository.kt", "line": 36, "category": "resource_leak" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/resource_leak"
+  },
+  {
+    "id": "concurrency_race",
+    "description": "多线程竞态条件：HashMap 在多个协程（IO dispatcher 线程池）中并发访问，无同步保护",
+    "known_bugs": [
+      { "file": "app/cache/ProfileCache.kt", "line": 13, "category": "concurrency_bug" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/concurrency_race"
+  },
+  {
+    "id": "api_contract_mismatch",
+    "description": "API 合同不匹配：backend OrderResponse 字段从 email 改为 customerEmail，frontend 仍解析 email",
+    "known_bugs": [
+      { "file": "backend/api/OrderController.kt", "line": 8, "category": "api_mismatch" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/api_contract_mismatch"
+  },
+  {
+    "id": "large_pr_noise",
+    "description": "大 PR 抗噪测试：100+ 行 diff 包含多个正常功能（过滤、排序、搜索），但 refreshProducts() 有隐蔽 bug（未保留 currentCategory）",
+    "known_bugs": [
+      { "file": "app/viewmodel/ProductListViewModel.kt", "line": 139, "category": "logic_bug" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/large_pr_noise"
+  },
+  {
+    "id": "false_positive_refactor",
+    "description": "纯重构 PR：DateFormatter 提取常量、复用 SimpleDateFormat 实例、改进 getRelativeTimeString，行为完全等价，无 bug",
+    "known_bugs": [],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/false_positive_refactor"
   }
 ]

@@ -1,0 +1,43 @@
+--- a/app/cache/ProfileCache.kt
++++ b/app/cache/ProfileCache.kt
+@@ -1,14 +1,37 @@
+ package app.cache
+
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
++
+ data class UserProfile(val id: Int, val displayName: String, val avatarUrl: String)
+
+-// Simple in-memory cache
+-class ProfileCache {
+-    private val cache = mutableMapOf<Int, UserProfile>()
++class ProfileCache {
+
+-    fun get(id: Int): UserProfile? = cache[id]
+-    fun put(profile: UserProfile) { cache[profile.id] = profile }
+-    fun invalidate(id: Int) { cache.remove(id) }
+-    fun size(): Int = cache.size
++    private val cache = HashMap<Int, UserProfile>()
++
++    suspend fun get(id: Int): UserProfile? = withContext(Dispatchers.IO) {
++        cache[id]
++    }
++
++    suspend fun put(profile: UserProfile) = withContext(Dispatchers.IO) {
++        cache[profile.id] = profile
++    }
++
++    suspend fun getOrLoad(id: Int, loader: suspend (Int) -> UserProfile): UserProfile {
++        val cached = get(id)
++        if (cached != null) return cached
++        val loaded = loader(id)
++        put(loaded)
++        return loaded
++    }
++
++    fun invalidate(id: Int) {
++        cache.remove(id)
++    }
++
++    fun size(): Int = cache.size
+ }
