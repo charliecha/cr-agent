@@ -15,6 +15,7 @@ load_dotenv()
 
 from shared.schemas import CRReport, Finding, Severity
 from shared.git_client import post_inline_comment
+from shared.model_config import set_langfuse_context
 
 _SEVERITY_RANK = {"critical": 2, "warning": 1, "info": 0}
 
@@ -114,7 +115,7 @@ async def _run_adk(pr: str, repo: str) -> CRReport:
 @click.option("--output", default="-", help="Write JSON report to file (- for stdout)")
 def main(pr: str, repo: str, post_comments: bool, output: str):
     click.echo(f"[adk] Reviewing {pr} ...", err=True)
-
+    set_langfuse_context("adk", pr)
     try:
         report = asyncio.run(asyncio.wait_for(_run_adk(pr, repo), timeout=120))
     except TimeoutError:

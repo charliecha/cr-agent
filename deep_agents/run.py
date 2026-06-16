@@ -8,9 +8,13 @@ Usage:
 import json
 import sys
 import click
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from shared.schemas import CRReport
 from shared.git_client import post_inline_comment
+from shared.model_config import set_langfuse_context
 
 
 @click.command()
@@ -23,6 +27,7 @@ def main(pr: str, repo: str, post_comments: bool, output: str):
     from deep_agents.agent import run_review
 
     click.echo(f"[deep_agents] Reviewing {pr} ...", err=True)
+    set_langfuse_context("deep_agents", pr)
     report: CRReport = run_review(pr_url=pr, repo_root=repo)
 
     report_json = report.model_dump_json(indent=2)

@@ -42,7 +42,13 @@ def build_agent():
     from langchain_litellm import ChatLiteLLM
     from shared.model_config import litellm_kwargs
 
-    llm = ChatLiteLLM(model=os.environ["CR_MODEL"], **litellm_kwargs())
+    kwargs = litellm_kwargs()
+    # ChatLiteLLM passes model_kwargs directly to litellm — move metadata there
+    model_kwargs = {}
+    if "metadata" in kwargs:
+        model_kwargs["metadata"] = kwargs.pop("metadata")
+
+    llm = ChatLiteLLM(model=os.environ["CR_MODEL"], model_kwargs=model_kwargs, **kwargs)
     return create_deep_agent(
         model=llm,
         tools=[git_diff, file_read, grep],
