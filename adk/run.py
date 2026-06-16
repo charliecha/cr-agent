@@ -46,8 +46,10 @@ def _parse_findings(raw) -> list[Finding]:
     return findings
 
 
-def _merge(pr_url: str, android_raw, backend_raw) -> CRReport:
-    all_findings = _parse_findings(android_raw) + _parse_findings(backend_raw)
+def _merge(pr_url: str, *raw_findings) -> CRReport:
+    all_findings = []
+    for raw in raw_findings:
+        all_findings.extend(_parse_findings(raw))
 
     seen: dict[tuple, Finding] = {}
     for f in all_findings:
@@ -78,8 +80,15 @@ async def _run_adk(pr: str, repo: str) -> CRReport:
     from google.genai import types
     from shared.tools import git_diff
     from adk.agents.root_agent import root_agent
+    import os
 
-    diff_content = git_diff(pr)
+    # For LOCAL fixtures, read pr.diff from the repo directory
+    if pr == "LOCAL":
+        diff_path = os.path.join(repo, "pr.diff")
+        with open(diff_path) as f:
+            diff_content = f.read()
+    else:
+        diff_content = git_diff(pr)
 
     runner = InMemoryRunner(agent=root_agent, app_name="cr_root")
     session = await runner.session_service.create_session(
@@ -110,7 +119,15 @@ async def _run_adk(pr: str, repo: str) -> CRReport:
         app_name="cr_root", user_id="ci", session_id=session.id
     )).state
 
-    return _merge(pr, session_state.get("android_findings"), session_state.get("backend_findings"))
+    return _merge(
+        pr,
+        session_state.get("android_findings"),
+        session_state.get("backend_findings"),
+        session_state.get("security_findings"),
+        session_state.get("concurrency_findings"),
+        session_state.get("caching_findings"),
+        session_state.get("db_schema_findings"),
+    )
 
 
 @click.command()
