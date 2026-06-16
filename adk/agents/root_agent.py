@@ -3,9 +3,9 @@ root_agent: orchestrates the ADK CR pipeline.
 
 Flow:
   SequentialAgent:
-    1. diff_reader
-    2. ParallelAgent([android_reviewer, backend_reviewer])
-    3. summarizer (LlmAgent with output_schema=CRReport)
+    1. diff_reader  — parses diff into per-file hunks, stores in session state
+    2. ParallelAgent([android_reviewer, backend_reviewer])  — review in parallel
+  Findings are merged by Python code in run.py (no summarizer LLM call).
 
 NOTE: SequentialAgent and ParallelAgent are deprecated in google-adk 2.x
 in favor of Workflow+Edge API, but the Workflow API has known issues with
@@ -13,17 +13,11 @@ LlmAgent pipelines in 2.2.0 (context overflow, session state propagation).
 Revisit when google-adk stabilizes the Workflow+LlmAgent integration.
 """
 
-import os
 import warnings
-from google.adk.agents import LlmAgent
-from google.adk.models.lite_llm import LiteLlm
 
-from shared.schemas import CRReport
 from adk.agents.diff_reader import diff_reader_agent
 from adk.agents.android_reviewer import android_reviewer_agent
 from adk.agents.backend_reviewer import backend_reviewer_agent
-from shared.model_config import litellm_kwargs
-from adk.prompts import SUMMARIZER_INSTRUCTION
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -34,17 +28,7 @@ with warnings.catch_warnings():
         sub_agents=[android_reviewer_agent, backend_reviewer_agent],
     )
 
-_summarizer = LlmAgent(
-    name="cr_summarizer",
-    model=LiteLlm(model=os.environ["CR_MODEL"], **litellm_kwargs()),
-    output_schema=CRReport,
-    output_key="cr_report",
-    instruction=SUMMARIZER_INSTRUCTION,
-)
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", DeprecationWarning)
     root_agent = SequentialAgent(
         name="cr_root",
-        sub_agents=[diff_reader_agent, _parallel_reviewers, _summarizer],
+        sub_agents=[diff_reader_agent, _parallel_reviewers],
     )
