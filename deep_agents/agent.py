@@ -7,7 +7,6 @@ tool rounds it needs before producing the final CRReport.
 """
 
 import os
-import re
 from langchain_core.tools import tool as lc_tool
 from langchain_core.messages import HumanMessage
 
@@ -20,7 +19,7 @@ from deep_agents.prompts import CR_SYSTEM_PROMPT
 
 @lc_tool
 def git_diff(pr_url: str) -> str:
-    """Fetch the unified diff for a pull request URL."""
+    """Fetch the unified diff for a pull request. Accepts a PR URL (https://...) or a local .diff file path."""
     return _git_diff(pr_url)
 
 
@@ -61,10 +60,33 @@ def run_review(pr_url: str, repo_root: str) -> CRReport:
     })
 
     messages = result.get("messages", [])
-    final_text = messages[-1].content if messages else ""
 
-    # model may prefix the JSON with explanation text — extract the first {...} block
-    m = re.search(r"\{.*\}", final_text, flags=re.DOTALL)
-    if not m:
-        raise ValueError(f"No JSON object found in agent output:\n{final_text[:500]}")
-    return CRReport.model_validate_json(m.group())
+    # Search all AI messages from last to first — the final JSON report may not
+    # always be in the very last message (model sometimes appends analysis after).
+    # For each message, scan right-to-left for a { that starts a valid CRReport JSON.
+    import json as _json
+    from langchain_core.messages import AIMessage
+    for msg in reversed(messages):
+        if not isinstance(msg, AIMessage):
+            continue
+        text = msg.content if isinstance(msg.content, str) else ""
+        if not text:
+            continue
+        for i in range(len(text) - 1, -1, -1):
+            if text[i] != '{':
+                continue
+            brace_end = text.rfind('}', i)
+            if brace_end == -1:
+                continue
+            candidate = text[i:brace_end + 1]
+            try:
+                _json.loads(candidate)
+                return CRReport.model_validate_json(candidate)
+            except Exception:
+                continue
+
+    all_text = " | ".join(
+        m.content[:200] for m in messages
+        if isinstance(m, AIMessage) and isinstance(m.content, str)
+    )
+    raise ValueError(f"No valid CRReport JSON in any AI message:\n{all_text[:500]}")

@@ -75,10 +75,12 @@ def run_framework(framework: str, fixture: dict) -> dict:
             verdict = report.verdict
 
             known = {(b["file"], b["category"]) for b in fixture["known_bugs"]}
+            matched = set()
             for f in report.findings:
                 key = (f.file, f.category)
-                if key in known:
+                if key in known and key not in matched:
                     true_positives += 1
+                    matched.add(key)
                 elif f.severity in ("critical", "warning"):
                     false_positives += 1
         except (ValidationError, json.JSONDecodeError) as e:
@@ -100,11 +102,15 @@ def run_framework(framework: str, fixture: dict) -> dict:
 
 @click.command()
 @click.option("--output", default="benchmark/results/latest.json", help="Output file for results")
-def main(output: str):
+@click.option("--framework", "frameworks", multiple=True,
+              type=click.Choice(["deep_agents", "adk"]),
+              default=["deep_agents", "adk"],
+              help="Frameworks to run (repeatable, default: both)")
+def main(output: str, frameworks: tuple):
     results = []
 
     for fixture in TEST_PRS:
-        for framework in ["deep_agents", "adk"]:
+        for framework in frameworks:
             click.echo(f"Running {framework} on {fixture['id']} ...", err=True)
             result = run_framework(framework, fixture)
             results.append(result)
@@ -135,7 +141,7 @@ def _print_summary(results: list[dict]) -> None:
         total_tp = sum(r["true_positives"] for r in fw_results)
         total_expected = sum(r["expected_bugs"] for r in fw_results)
         total_fp = sum(r["false_positives"] for r in fw_results)
-        avg_latency = sum(r["latency_seconds"] for r in fw_results) / len(fw_results)
+        avg_latency = sum(r["latency_seconds"] for r in fw_results) / len(fw_results) if fw_results else 0.0
         schema_ok = all(r["output_valid_json"] for r in fw_results)
         click.echo(
             f"  {fw:15}  "

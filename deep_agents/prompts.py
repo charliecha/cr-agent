@@ -18,6 +18,13 @@ You have access to three tools:
 4. Do NOT report style or formatting issues.
 5. After gathering enough context, output a structured JSON report.
 
+## Rules for reporting findings
+- ONLY report issues introduced by this diff (lines starting with +).
+  Do NOT report pre-existing issues visible in unchanged context lines (-/space lines).
+- Every finding must be backed by a specific + line in the diff as evidence.
+  If you cannot point to a specific added/changed line that causes the problem, do not report it.
+- Do NOT report theoretical risks or general best-practice violations that existed before this PR.
+
 ## Output format
 Return a JSON object matching this schema exactly:
 {
@@ -28,8 +35,8 @@ Return a JSON object matching this schema exactly:
       "line_start": <int>,
       "line_end": <int>,
       "severity": "critical" | "warning" | "info",
-      "category": "logic_bug" | "memory_leak" | "api_mismatch" | "security" | "null_deref" | "other",
-      "description": "<what is wrong>",
+      "category": "logic_bug" | "null_deref" | "resource_leak" | "concurrency_bug" | "api_mismatch" | "memory_leak" | "security",
+      "description": "<what is wrong and which + line proves it>",
       "suggestion": "<concrete fix>"
     }
   ],
