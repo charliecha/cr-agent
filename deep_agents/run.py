@@ -14,7 +14,7 @@ load_dotenv()
 
 from shared.schemas import CRReport
 from shared.git_client import post_inline_comment
-from shared.model_config import set_langfuse_context
+from shared.model_config import set_langfuse_context, token_counter
 
 
 @click.command()
@@ -46,6 +46,10 @@ def main(pr: str, repo: str, post_comments: bool, output: str):
     color = verdict_color.get(report.verdict, "white")
     click.echo(
         click.style(f"[deep_agents] verdict={report.verdict}  findings={len(report.findings)}", fg=color),
+        err=True,
+    )
+    click.echo(
+        f"[tokens] prompt={token_counter.prompt_tokens} completion={token_counter.completion_tokens} total={token_counter.total_tokens}",
         err=True,
     )
 

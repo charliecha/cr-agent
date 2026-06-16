@@ -1,0 +1,40 @@
+--- a/src/main/resources/db/migration/V2__add_user_role.sql
++++ b/src/main/resources/db/migration/V2__add_user_role.sql
+@@ -0,0 +1 @@
++ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT 'user';
+--- a/src/main/java/com/example/repository/UserRepository.java
++++ b/src/main/java/com/example/repository/UserRepository.java
+@@ -9,4 +9,11 @@ public class UserRepository {
+         this.jdbc = jdbc;
+     }
+
++    public List<Map<String, Object>> findByRole(String role) {
++        return jdbc.queryForList(
++            "SELECT id, email, name FROM users WHERE role = ?", role
++        );
++    }
+ }
+--- a/src/main/java/com/example/service/UserService.java
++++ b/src/main/java/com/example/service/UserService.java
+@@ -0,0 +1,19 @@
++package com.example.service;
++
++import com.example.model.Role;
++import com.example.repository.UserRepository;
++import org.springframework.stereotype.Service;
++import java.util.List;
++import java.util.Map;
++
++@Service
++public class UserService {
++
++    private final UserRepository userRepo;
++
++    public UserService(UserRepository userRepo) {
++        this.userRepo = userRepo;
++    }
++
++    public List<Map<String, Object>> getRegularUsers() {
++        return userRepo.findByRole(Role.USER.name());
++    }
++}

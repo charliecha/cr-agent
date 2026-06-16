@@ -36,9 +36,11 @@
   },
   {
     "id": "concurrency_race",
-    "description": "多线程竞态条件：HashMap 在多个协程（IO dispatcher 线程池）中并发访问，无同步保护",
+    "description": "多线程竞态条件：HashMap 在多个协程（IO dispatcher 线程池）中并发访问，无同步保护；getOrLoad 有 check-then-act 竞态；invalidate 在主线程访问而 get/put 在 IO 线程",
     "known_bugs": [
-      { "file": "app/cache/ProfileCache.kt", "line": 13, "category": "concurrency_bug" }
+      { "file": "app/cache/ProfileCache.kt", "line": 13, "category": "concurrency_bug" },
+      { "file": "app/cache/ProfileCache.kt", "line": 23, "category": "concurrency_bug" },
+      { "file": "app/cache/ProfileCache.kt", "line": 32, "category": "concurrency_bug" }
     ],
     "pr_url": "LOCAL",
     "repo_path": "benchmark/fixtures/concurrency_race"
@@ -64,10 +66,53 @@
   },
   {
     "id": "false_positive_refactor",
-    "description": "纯重构 PR：DateFormatter 提取常量、复用 SimpleDateFormat 实例、改进 getRelativeTimeString，行为完全等价，无 bug",
+    "description": "纯重构 PR：formatName 提取辅助方法 capitalizeName，逻辑完全等价，无 bug，用于测试误报率",
     "known_bugs": [],
     "pr_url": "LOCAL",
     "repo_path": "benchmark/fixtures/false_positive_refactor"
+  },
+  {
+    "id": "auth_bypass_chain",
+    "description": "多文件安全漏洞：AdminController 新增 /admin/export/users 端点，但 SecurityConfig 中 /admin/** 已配置 permitAll()，导致该端点无需认证即可访问。需要读 SecurityConfig 才能发现。",
+    "known_bugs": [
+      { "file": "src/main/java/com/example/controller/AdminController.java", "line": 14, "category": "security" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/auth_bypass_chain"
+  },
+  {
+    "id": "event_handler_double_fire",
+    "description": "多文件资源泄漏：OrderFragment 在 onResume 注册 EventBus handler 但没有 onPause 注销，结合 EventBus.register 允许重复注册，每次 resume/pause 循环都会累积 handler，导致事件多次触发。需要读 EventBus 和 MainActivity 才能发现模式。",
+    "known_bugs": [
+      { "file": "app/ui/OrderFragment.kt", "line": 10, "category": "resource_leak" },
+      { "file": "app/ui/OrderFragment.kt", "line": 10, "category": "memory_leak" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/event_handler_double_fire"
+  },
+  {
+    "id": "db_migration_mismatch",
+    "description": "三文件数据不一致：V2 migration 设置 role 默认值为小写 'user'，UserService 调用 Role.USER.name() 得到大写 'USER'，导致 findByRole 查询现有用户时返回空结果。需要跨 SQL migration、Repository、Service 三个文件联合分析。",
+    "known_bugs": [
+      { "file": "src/main/java/com/example/service/UserService.java", "line": 18, "category": "logic_bug" },
+      { "file": "src/main/java/com/example/service/UserService.java", "line": 18, "category": "api_mismatch" },
+      { "file": "src/main/java/com/example/service/UserService.java", "line": 18, "category": "data_contract_mismatch" },
+      { "file": "src/main/resources/db/migration/V2__add_user_role.sql", "line": 1, "category": "logic_bug" },
+      { "file": "src/main/resources/db/migration/V2__add_user_role.sql", "line": 1, "category": "api_mismatch" },
+      { "file": "src/main/resources/db/migration/V2__add_user_role.sql", "line": 1, "category": "data_contract_mismatch" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/db_migration_mismatch"
+  },
+  {
+    "id": "missing_auth_offscreen",
+    "description": "diff 只改 Controller 新增 /admin 端点，@PreAuthorize(\"isAuthenticated()\") 看起来有保护，但 UserService.getAdminUsers() 本身没有 @PreAuthorize(\"hasRole('ADMIN')\")，任何登录用户都能获取 admin 数据。bug 完全在 diff 之外的文件里。",
+    "known_bugs": [
+      { "file": "src/main/java/com/example/service/UserService.java", "line": 21, "category": "security" },
+      { "file": "src/main/java/com/example/controller/UserController.java", "line": 23, "category": "security" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/missing_auth_offscreen"
   },
   {
     "id": "java_sql_injection",

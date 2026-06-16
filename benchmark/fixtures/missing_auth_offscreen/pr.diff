@@ -1,0 +1,15 @@
+--- a/src/main/java/com/example/controller/UserController.java
++++ b/src/main/java/com/example/controller/UserController.java
+@@ -17,4 +17,10 @@ public class UserController {
+     @GetMapping
+     @PreAuthorize("isAuthenticated()")
+     public List<User> listUsers() {
+         return userService.getAllUsers();
+     }
++
++    @GetMapping("/admin")
++    @PreAuthorize("isAuthenticated()")
++    public List<User> listAdminUsers() {
++        return userService.getAdminUsers();
++    }
+ }

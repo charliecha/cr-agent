@@ -8,6 +8,7 @@ Usage:
 
 import os
 import json
+import re
 import time
 import subprocess
 import sys
@@ -47,6 +48,7 @@ def run_framework(framework: str, fixture: dict) -> dict:
         )
     except subprocess.TimeoutExpired:
         elapsed = time.monotonic() - start
+        expected = len({(b["file"], b.get("line", 0)) for b in fixture["known_bugs"]})
         return {
             "framework": framework,
             "fixture_id": fixture["id"],
@@ -55,12 +57,15 @@ def run_framework(framework: str, fixture: dict) -> dict:
             "findings_count": 0,
             "true_positives": 0,
             "false_positives": 0,
-            "expected_bugs": len(fixture["known_bugs"]),
+            "expected_bugs": expected,
             "verdict": "timeout",
-            "stderr": f"subprocess killed after 150s",
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "stderr": "subprocess killed after 150s",
         }
-    elapsed = time.monotonic() - start
 
+    elapsed = time.monotonic() - start
     output_valid = False
     findings_count = 0
     true_positives = 0
@@ -75,14 +80,21 @@ def run_framework(framework: str, fixture: dict) -> dict:
             verdict = report.verdict
 
             known = {(b["file"], b["category"]) for b in fixture["known_bugs"]}
+            # Deduplicate by (file, line) to avoid counting category aliases as separate expected bugs
+            expected_locations = {(b["file"], b.get("line", 0)) for b in fixture["known_bugs"]}
+            matched_locations: set[tuple] = set()
             matched = set()
             for f in report.findings:
                 key = (f.file, f.category)
+                loc = (f.file, f.line_start)
                 if key in known and key not in matched:
                     true_positives += 1
                     matched.add(key)
+                    matched_locations.add(loc)
                 elif f.severity in ("critical", "warning"):
-                    false_positives += 1
+                    # Only count as fp if this location wasn't already a tp
+                    if loc not in matched_locations:
+                        false_positives += 1
         except (ValidationError, json.JSONDecodeError) as e:
             pass
 
@@ -94,10 +106,21 @@ def run_framework(framework: str, fixture: dict) -> dict:
         "findings_count": findings_count,
         "true_positives": true_positives,
         "false_positives": false_positives,
-        "expected_bugs": len(fixture["known_bugs"]),
+        "expected_bugs": len({(b["file"], b.get("line", 0)) for b in fixture["known_bugs"]}),
         "verdict": verdict,
+        "prompt_tokens": _parse_tokens(proc.stderr, "prompt"),
+        "completion_tokens": _parse_tokens(proc.stderr, "completion"),
+        "total_tokens": _parse_tokens(proc.stderr, "total"),
         "stderr": proc.stderr[-500:] if proc.stderr else "",
     }
+
+
+def _parse_tokens(stderr: str, key: str) -> int:
+    """Extract token count from [tokens] line in stderr."""
+    if not stderr:
+        return 0
+    m = re.search(rf"\[tokens\].*{key}=(\d+)", stderr)
+    return int(m.group(1)) if m else 0
 
 
 @click.command()
@@ -132,6 +155,7 @@ def _print_row(r: dict) -> None:
         f"tp={r['true_positives']}/{r['expected_bugs']} "
         f"fp={r['false_positives']} "
         f"{r['latency_seconds']}s "
+        f"tokens={r['total_tokens']} "
         f"verdict={r['verdict']}"
     )
 
@@ -144,13 +168,17 @@ def _print_summary(results: list[dict]) -> None:
         total_expected = sum(r["expected_bugs"] for r in fw_results)
         total_fp = sum(r["false_positives"] for r in fw_results)
         avg_latency = sum(r["latency_seconds"] for r in fw_results) / len(fw_results) if fw_results else 0.0
+        total_tokens = sum(r["total_tokens"] for r in fw_results)
+        avg_tokens = total_tokens // len(fw_results) if fw_results else 0
         schema_ok = all(r["output_valid_json"] for r in fw_results)
         click.echo(
             f"  {fw:15}  "
             f"recall={total_tp}/{total_expected}  "
-            f"false_positives={total_fp}  "
+            f"fp={total_fp}  "
             f"avg_latency={avg_latency:.1f}s  "
-            f"schema_valid={'yes' if schema_ok else 'NO'}"
+            f"avg_tokens={avg_tokens}  "
+            f"total_tokens={total_tokens}  "
+            f"schema={'ok' if schema_ok else 'FAIL'}"
         )
 
 
