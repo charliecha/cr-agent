@@ -22,8 +22,14 @@ _SEVERITY_RANK = {"critical": 2, "warning": 1, "info": 0}
 
 def _parse_findings(raw) -> list[Finding]:
     if isinstance(raw, str):
-        start, end = raw.find("{"), raw.rfind("}")
-        if start == -1 or end <= start:
+        # Find {"findings": ...} specifically, not just the first {
+        start = raw.find('{"findings"')
+        if start == -1:
+            start = raw.find('{ "findings"')
+        if start == -1:
+            return []
+        end = raw.rfind("}")
+        if end <= start:
             return []
         try:
             raw = json.loads(raw[start:end + 1])

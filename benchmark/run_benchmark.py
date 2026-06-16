@@ -106,10 +106,12 @@ def run_framework(framework: str, fixture: dict) -> dict:
               type=click.Choice(["deep_agents", "adk"]),
               default=["deep_agents", "adk"],
               help="Frameworks to run (repeatable, default: both)")
-def main(output: str, frameworks: tuple):
+@click.option("--id", "ids", multiple=True, help="Run only these fixture IDs (repeatable)")
+def main(output: str, frameworks: tuple, ids: tuple):
     results = []
 
-    for fixture in TEST_PRS:
+    fixtures = [f for f in TEST_PRS if not ids or f["id"] in ids]
+    for fixture in fixtures:
         for framework in frameworks:
             click.echo(f"Running {framework} on {fixture['id']} ...", err=True)
             result = run_framework(framework, fixture)

@@ -1,0 +1,27 @@
+--- a/src/main/kotlin/com/example/service/ReportService.kt
++++ b/src/main/kotlin/com/example/service/ReportService.kt
+@@ -1,6 +1,8 @@
+ package com.example.service
+
+ import com.example.model.OrderSummary
++import com.example.repository.OrderRepository
++import com.example.repository.ProductRepository
+ import org.springframework.stereotype.Service
+
+ @Service
+@@ -10,4 +12,14 @@ class ReportService(
+     private val productRepo: ProductRepository,
+ ) {
+-    fun buildOrderSummaries(userId: Long): List<OrderSummary> = emptyList()
++    fun buildOrderSummaries(userId: Long): List<OrderSummary> {
++        val orders = orderRepo.findByUserId(userId)
++        return orders.map { order ->
++            val product = productRepo.findById(order.productId)
++            OrderSummary(
++                orderId = order.id,
++                productName = product?.name ?: "Unknown",
++                quantity = order.quantity,
++            )
++        }
++    }
+ }

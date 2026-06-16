@@ -3,7 +3,8 @@
     "id": "cross_file_logic_bug",
     "description": "方法签名改变但调用方未更新：UserRepository.getUser(id) 改为 getUser(id, includeDeleted)，调用方仍用旧签名",
     "known_bugs": [
-      { "file": "app/repository/UserRepository.kt", "line": 24, "category": "logic_bug" }
+      { "file": "app/repository/UserRepository.kt", "line": 24, "category": "logic_bug" },
+      { "file": "app/service/UserService.kt", "line": 11, "category": "logic_bug" }
     ],
     "pr_url": "LOCAL",
     "repo_path": "benchmark/fixtures/cross_file_logic_bug"
@@ -46,7 +47,8 @@
     "id": "api_contract_mismatch",
     "description": "API 合同不匹配：backend OrderResponse 字段从 email 改为 customerEmail，frontend 仍解析 email",
     "known_bugs": [
-      { "file": "backend/api/OrderController.kt", "line": 8, "category": "api_mismatch" }
+      { "file": "backend/api/OrderController.kt", "line": 8, "category": "api_mismatch" },
+      { "file": "frontend/client/OrderClient.kt", "line": 10, "category": "api_mismatch" }
     ],
     "pr_url": "LOCAL",
     "repo_path": "benchmark/fixtures/api_contract_mismatch"
@@ -66,5 +68,32 @@
     "known_bugs": [],
     "pr_url": "LOCAL",
     "repo_path": "benchmark/fixtures/false_positive_refactor"
+  },
+  {
+    "id": "java_sql_injection",
+    "description": "Spring Boot Java：searchUsers() 把用户输入直接拼接进 SQL 字符串，未使用 PreparedStatement 占位符，存在 SQL 注入漏洞",
+    "known_bugs": [
+      { "file": "src/main/java/com/example/api/UserController.java", "line": 19, "category": "security" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/java_sql_injection"
+  },
+  {
+    "id": "java_missing_transaction",
+    "description": "Spring Boot Java：placeOrder() 连续写入三张表（orders、inventory、audit），没有 @Transactional，任一步失败会导致数据不一致",
+    "known_bugs": [
+      { "file": "src/main/java/com/example/service/OrderService.java", "line": 23, "category": "logic_bug" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/java_missing_transaction"
+  },
+  {
+    "id": "kotlin_n_plus_one",
+    "description": "Kotlin Spring：buildOrderSummaries() 在 map 循环里对每个 order 单独调用 productRepo.findById()，产生 N+1 查询",
+    "known_bugs": [
+      { "file": "src/main/kotlin/com/example/service/ReportService.kt", "line": 15, "category": "logic_bug" }
+    ],
+    "pr_url": "LOCAL",
+    "repo_path": "benchmark/fixtures/kotlin_n_plus_one"
   }
 ]

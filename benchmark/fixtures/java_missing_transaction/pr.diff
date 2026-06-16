@@ -1,0 +1,23 @@
+--- a/src/main/java/com/example/service/OrderService.java
++++ b/src/main/java/com/example/service/OrderService.java
+@@ -1,6 +1,10 @@
+ package com.example.service;
+
+ import org.springframework.stereotype.Service;
++import com.example.repository.OrderRepository;
++import com.example.repository.InventoryRepository;
++import com.example.repository.AuditRepository;
++import com.example.model.Order;
+
+ @Service
+ public class OrderService {
+@@ -18,6 +22,12 @@ public class OrderService {
+         this.auditRepo = auditRepo;
+     }
+
++    public void placeOrder(Order order) {
++        orderRepo.save(order);
++        inventoryRepo.deductStock(order.getProductId(), order.getQuantity());
++        auditRepo.logOrderCreated(order.getId());
++    }
+ }
