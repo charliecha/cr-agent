@@ -47,6 +47,7 @@ The session state contains:
 Merge all findings into a single CRReport JSON:
 - pr_url: from diff_summary.pr_url
 - findings: merged and deduplicated (same file+line_start+category → keep more severe)
+  Each finding's category MUST be one of: "logic_bug" | "null_deref" | "resource_leak" | "concurrency_bug" | "api_mismatch" | "memory_leak" | "security"
 - summary: 2-3 sentence overall assessment
 - verdict: "approve" | "request_changes" | "block"
 

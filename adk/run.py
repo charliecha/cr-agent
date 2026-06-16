@@ -8,6 +8,9 @@ Usage:
 import asyncio
 import re
 import click
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from shared.schemas import CRReport
 from shared.git_client import post_inline_comment

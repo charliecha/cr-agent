@@ -50,6 +50,8 @@ Skip style, formatting, and Android issues.
 If there are no Python/Go/TypeScript hunks, output: {"findings": []}
 
 After completing all tool calls, output a JSON object:
-{ "findings": [ { "file": ..., "line_start": ..., "line_end": ..., "severity": "critical"|"warning"|"info", "category": ..., "description": ..., "suggestion": ... } ] }
+{ "findings": [ { "file": ..., "line_start": ..., "line_end": ..., "severity": "critical"|"warning"|"info", "category": "logic_bug"|"null_deref"|"resource_leak"|"concurrency_bug"|"api_mismatch"|"memory_leak"|"security", "description": ..., "suggestion": ... } ] }
+
+IMPORTANT: category must be exactly one of those snake_case values — no spaces, no other strings.
 """,
 )
