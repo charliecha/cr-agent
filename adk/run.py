@@ -21,6 +21,34 @@ from shared.model_config import set_langfuse_context, token_counter
 _SEVERITY_RANK = {"critical": 2, "warning": 1, "info": 0}
 
 
+def _filter_test_files(diff_content: str) -> str:
+    """Remove test file hunks from diff. Let CI handle test code validation."""
+    lines = diff_content.split('\n')
+    result = []
+    skip_current_hunk = False
+
+    for line in lines:
+        if line.startswith('diff --git'):
+            # Check if this is a test file
+            # Patterns: */test/*, *Test.kt, *Test.java, *Test.py, *_test.go
+            skip_current_hunk = (
+                '/test/' in line or
+                'Test.kt' in line or
+                'Test.java' in line or
+                'Test.py' in line or
+                '_test.go' in line or
+                '/tests/' in line or
+                '/androidTest/' in line
+            )
+            if skip_current_hunk:
+                continue
+
+        if not skip_current_hunk:
+            result.append(line)
+
+    return '\n'.join(result)
+
+
 def _parse_findings(raw) -> list[Finding]:
     if isinstance(raw, str):
         start = raw.find('{"findings"')
@@ -89,6 +117,12 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
     from google.genai import types
     from adk.agents.root_agent import root_agent
 
+    # Filter out test files - let CI handle test code validation
+    filtered_diff = _filter_test_files(diff_content)
+    if not filtered_diff.strip():
+        click.echo("[adk] All changes are in test files, skipping review", err=True)
+        return []
+
     runner = InMemoryRunner(agent=root_agent, app_name="cr_root")
     session = await runner.session_service.create_session(
         app_name="cr_root", user_id="ci"
@@ -98,7 +132,7 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
         parts=[types.Part(text=(
             f"pr_url: {pr}\n"
             f"repo: {repo}\n\n"
-            f"Diff:\n{diff_content}"
+            f"Diff:\n{filtered_diff}"
         ))],
     )
     async for _ in runner.run_async(
