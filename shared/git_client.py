@@ -329,7 +329,7 @@ def post_inline_comment_gitlab(mr_url: str, file: str, line: int, body: str, inf
 
 
 def get_existing_inline_comments(mr_url: str) -> set:
-    """Return set of (file, line) tuples for cr-agent inline comments already on this MR."""
+    """Return set of file paths that already have a cr-agent inline comment on this MR."""
     import httpx
     from urllib.parse import quote
 
@@ -356,8 +356,7 @@ def get_existing_inline_comments(mr_url: str) -> set:
                     continue
                 pos = note.get("position") or {}
                 f = pos.get("new_path")
-                ln = pos.get("new_line")
-                if f and ln:
-                    existing.add((f, ln))
+                if f:
+                    existing.add(f)
         page += 1
     return existing

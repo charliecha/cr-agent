@@ -296,7 +296,7 @@ def _post_findings(report: CRReport, info: PRInfo) -> None:
     existing = get_existing_inline_comments(report.pr_url)
     posted = skipped = 0
     for f in report.findings:
-        if (f.file, f.line_start) in existing:
+        if f.file in existing:
             skipped += 1
             continue
         comment = f"<!-- cr-agent -->\n**[{f.severity}] {f.category}**\n\n{f.description}\n\n> {f.suggestion}"
