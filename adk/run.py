@@ -215,13 +215,41 @@ async def _run_adk(pr: str, repo: str) -> CRReport:
     return CRReport(pr_url=pr, findings=findings, summary=summary, verdict=verdict)
 
 
+def _resolve_repo(pr: str, repo: str | None) -> str:
+    """Resolve repo path: use explicit path, or auto-detect from REPOS_DIR."""
+    if repo:
+        return repo
+    repos_dir = os.environ.get("REPOS_DIR", "")
+    if not repos_dir:
+        raise click.UsageError("--repo not specified and REPOS_DIR not set in .env.")
+
+    # Extract project name from PR URL, e.g. ".../latincore/-/merge_requests/1" → "latincore"
+    parts = pr.rstrip("/").split("/")
+    try:
+        dash_idx = parts.index("-")
+        project_name = parts[dash_idx - 1]
+    except (ValueError, IndexError):
+        raise click.UsageError("Cannot infer project name from PR URL. Please specify --repo.")
+
+    candidate = os.path.join(repos_dir, project_name)
+    if os.path.isdir(candidate):
+        click.echo(f"[adk] Auto-detected repo: {candidate}", err=True)
+        return os.path.abspath(candidate)
+
+    raise click.UsageError(
+        f"No repo found at {candidate}. "
+        f"Clone it to $REPOS_DIR/{project_name}/ or pass --repo explicitly."
+    )
+
+
 @click.command()
 @click.option("--pr", required=True, help="GitHub/GitLab PR URL")
-@click.option("--repo", required=True, help="Local path to the checked-out repo")
+@click.option("--repo", default=None, help="Local path to checked-out repo (auto-detected from repos/ if omitted)")
 @click.option("--post-comments", is_flag=True, default=False,
               help="Post findings as inline PR comments")
 @click.option("--output", default="-", help="Write JSON report to file (- for stdout)")
-def main(pr: str, repo: str, post_comments: bool, output: str):
+def main(pr: str, repo: str | None, post_comments: bool, output: str):
+    repo = _resolve_repo(pr, repo)
     click.echo(f"[adk] Reviewing {pr} ...", err=True)
     set_langfuse_context("adk", pr)
     try:

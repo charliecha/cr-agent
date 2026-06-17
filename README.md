@@ -9,11 +9,16 @@
 uv sync
 
 # 配置环境变量
-cp .env.example .env  # 填写 GITLAB_TOKEN、GITLAB_URL、CR_MODEL
+cp .env.example .env  # 填写 GITLAB_TOKEN、GITLAB_URL、CR_MODEL、REPOS_DIR
 
-# 运行
+# 运行（指定 repo）
 python -m adk.run --pr <MR_URL> --repo <本地仓库路径>
+
+# 运行（配置 REPOS_DIR 后可省略 --repo，自动从 PR URL 推断项目名）
+python -m adk.run --pr https://gitlab.shalltry.com/inputmethod/latincore/-/merge_requests/78
 ```
+
+**`REPOS_DIR` 自动检测规则**：从 PR URL 提取项目名（`latincore`），拼接为 `$REPOS_DIR/latincore`。目录名须与 GitLab 项目名一致。
 
 ## ADK Pipeline 流程
 
