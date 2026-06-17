@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from shared.schemas import CRReport, Finding, Severity
-from shared.git_client import post_inline_comment, upsert_mr_comment
+from shared.git_client import post_inline_comment, upsert_mr_comment, post_inline_comment_gitlab, PRInfo
 from shared.model_config import set_langfuse_context, token_counter
 
 _SEVERITY_RANK = {"critical": 2, "warning": 1, "info": 0}
@@ -175,7 +175,9 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
     return report.findings
 
 
-async def _run_adk(pr: str, repo: str) -> CRReport:
+async def _run_adk(pr: str, repo: str) -> tuple[CRReport, PRInfo]:
+    info = PRInfo(url=pr, title="", description="", diff="", changed_files=[],
+                  base_sha="", head_sha="", repo_full_name="")
     if pr == "LOCAL":
         diff_path = os.path.join(repo, "pr.diff")
         with open(diff_path) as f:
@@ -217,7 +219,7 @@ async def _run_adk(pr: str, repo: str) -> CRReport:
         if not findings else
         f"Found {len(findings)} issue(s): {n_crit} critical, {n_warn} warning. Review required before merging."
     )
-    return CRReport(pr_url=pr, findings=findings, summary=summary, verdict=verdict)
+    return CRReport(pr_url=pr, findings=findings, summary=summary, verdict=verdict), info
 
 
 def _resolve_repo(pr: str, repo: str | None) -> str:
@@ -258,7 +260,7 @@ def main(pr: str, repo: str | None, post_comments: bool, output: str):
     click.echo(f"[adk] Reviewing {pr} ...", err=True)
     set_langfuse_context("adk", pr)
     try:
-        report = asyncio.run(asyncio.wait_for(_run_adk(pr, repo), timeout=600))
+        report, info = asyncio.run(asyncio.wait_for(_run_adk(pr, repo), timeout=600))
     except TimeoutError:
         click.echo("[adk] ERROR: timed out after 600s", err=True)
         raise SystemExit(1)
@@ -272,7 +274,7 @@ def main(pr: str, repo: str | None, post_comments: bool, output: str):
         click.echo(f"[adk] Report written to {output}", err=True)
 
     if post_comments:
-        _post_findings(report)
+        _post_findings(report, info)
 
     verdict_color = {"approve": "green", "request_changes": "yellow", "block": "red"}
     color = verdict_color.get(report.verdict, "white")
@@ -286,10 +288,25 @@ def main(pr: str, repo: str | None, post_comments: bool, output: str):
     )
 
 
-def _post_findings(report: CRReport) -> None:
-    body = _format_mr_comment(report)
-    upsert_mr_comment(report.pr_url, body)
-    click.echo(f"[adk] Posted/updated MR comment ({len(report.findings)} findings)", err=True)
+def _post_findings(report: CRReport, info: PRInfo) -> None:
+    # 1. 整体评论（保持不变）
+    upsert_mr_comment(report.pr_url, _format_mr_comment(report))
+
+    # 2. inline comments（逐个，失败不中断整体评论）
+    posted = 0
+    for f in report.findings:
+        comment = f"**[{f.severity}] {f.category}**\n\n{f.description}\n\n> {f.suggestion}"
+        try:
+            ok = post_inline_comment_gitlab(report.pr_url, f.file, f.line_start, comment, info)
+            if ok:
+                posted += 1
+        except Exception as e:
+            click.echo(f"[adk] inline comment failed {f.file}:{f.line_start}: {e}", err=True)
+
+    click.echo(
+        f"[adk] Posted/updated MR comment + {posted}/{len(report.findings)} inline comments",
+        err=True,
+    )
 
 
 def _format_mr_comment(report: CRReport) -> str:

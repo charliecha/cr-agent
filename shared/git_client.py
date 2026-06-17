@@ -4,7 +4,8 @@ Returns plain dicts so both agent implementations stay decoupled from SDK types.
 """
 
 import os
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -18,6 +19,8 @@ class PRInfo:
     head_sha: str
     repo_full_name: str          # "owner/repo"
     target_branch: str = ""      # branch to checkout before review
+    start_sha: str = ""          # diff_refs.start_sha, required for inline comments
+    diff_new_lines: dict = field(default_factory=dict)  # {filepath: set[int]}
 
 
 def get_pr_info(pr_url: str) -> PRInfo:
@@ -119,6 +122,27 @@ _MAX_FILE_LINES = 200
 _BATCH_CHARS = 40_000
 
 
+def _parse_hunk_new_lines(diff_text: str) -> set:
+    """Return set of new-file line numbers that appear as added lines in the diff."""
+    result = set()
+    new_line = 0
+    for line in diff_text.split('\n'):
+        if line.startswith('@@'):
+            m = re.search(r'\+(\d+)', line)
+            if m:
+                new_line = int(m.group(1)) - 1
+        elif line.startswith('+++'):
+            pass
+        elif line.startswith('+'):
+            new_line += 1
+            result.add(new_line)
+        elif line.startswith('-'):
+            pass
+        else:
+            new_line += 1
+    return result
+
+
 def _batch_changes(changes: list[dict]) -> list[str]:
     """Filter non-code files, truncate large hunks, split into batches by char budget."""
     filtered = []
@@ -176,6 +200,12 @@ def _gitlab_pr_with_batches(mr_url: str) -> tuple[PRInfo, list[str]]:
 
     batches = _batch_changes(changes_resp.get("changes", []))
 
+    diff_new_lines = {
+        c["new_path"]: _parse_hunk_new_lines(c["diff"])
+        for c in changes_resp.get("changes", [])
+        if c.get("diff")
+    }
+
     info = PRInfo(
         url=mr_url,
         title=mr["title"],
@@ -186,6 +216,8 @@ def _gitlab_pr_with_batches(mr_url: str) -> tuple[PRInfo, list[str]]:
         head_sha=mr["diff_refs"]["head_sha"],
         repo_full_name=project_path,
         target_branch=mr.get("target_branch", ""),
+        start_sha=mr["diff_refs"].get("start_sha", ""),
+        diff_new_lines=diff_new_lines,
     )
     return info, batches
 
@@ -257,3 +289,40 @@ def upsert_mr_comment(mr_url: str, body: str) -> None:
             json={"body": marked_body},
             timeout=30,
         ).raise_for_status()
+
+
+def post_inline_comment_gitlab(mr_url: str, file: str, line: int, body: str, info: "PRInfo") -> bool:
+    """Post an inline comment on a GitLab MR diff line.
+
+    Returns True if posted, False if the line is not in the diff (skipped gracefully).
+    Raises on API errors.
+    """
+    if line not in info.diff_new_lines.get(file, set()):
+        return False
+
+    import httpx
+    from urllib.parse import quote
+
+    token = os.environ["GITLAB_TOKEN"]
+    base_url = os.environ.get("GITLAB_URL", "https://gitlab.com").rstrip("/")
+    project_path, mr_iid = _parse_gitlab_url(mr_url)
+    encoded = quote(project_path, safe="")
+
+    httpx.post(
+        f"{base_url}/api/v4/projects/{encoded}/merge_requests/{mr_iid}/discussions",
+        headers={"PRIVATE-TOKEN": token},
+        json={
+            "body": body,
+            "position": {
+                "position_type": "text",
+                "base_sha": info.base_sha,
+                "head_sha": info.head_sha,
+                "start_sha": info.start_sha,
+                "new_path": file,
+                "old_path": file,
+                "new_line": line,
+            },
+        },
+        timeout=30,
+    ).raise_for_status()
+    return True
