@@ -23,7 +23,7 @@ def get_pr_info(pr_url: str) -> PRInfo:
     """Detect platform from URL and fetch PR/MR info + diff."""
     if "github.com" in pr_url:
         return _github_pr(pr_url)
-    return _gitlab_mr(pr_url)
+    return _gitlab_pr(pr_url)
 
 
 def post_inline_comment(pr_url: str, file: str, line: int, body: str) -> None:
@@ -108,29 +108,85 @@ def _parse_gitlab_url(url: str) -> tuple[str, int]:
 
 
 def _gitlab_pr(mr_url: str) -> PRInfo:
-    import gitlab
+    info, _ = _gitlab_pr_with_batches(mr_url)
+    return info
+
+
+_SKIP_EXTS = {".xml", ".json", ".md", ".png", ".jpg", ".svg", ".webp",
+              ".gradle", ".pro", ".txt", ".toml", ".kts", ".lock", ".gitignore"}
+_MAX_FILE_LINES = 200
+_BATCH_CHARS = 40_000
+
+
+def _batch_changes(changes: list[dict]) -> list[str]:
+    """Filter non-code files, truncate large hunks, split into batches by char budget."""
+    filtered = []
+    for c in changes:
+        path = c.get("new_path", "")
+        ext = os.path.splitext(path)[1].lower()
+        if ext in _SKIP_EXTS or not c.get("diff"):
+            continue
+        d = c["diff"]
+        lines = d.split("\n")
+        if len(lines) > _MAX_FILE_LINES:
+            d = "\n".join(lines[:_MAX_FILE_LINES]) + "\n... (truncated)"
+        filtered.append((path, d))
+
+    batches, current, current_len = [], [], 0
+    for path, d in filtered:
+        entry = f"--- {path}\n{d}"
+        if current and current_len + len(entry) > _BATCH_CHARS:
+            batches.append("\n".join(current))
+            current, current_len = [], 0
+        current.append(entry)
+        current_len += len(entry)
+    if current:
+        batches.append("\n".join(current))
+    return batches
+
+
+def get_pr_diff_batches(pr_url: str) -> tuple[PRInfo, list[str]]:
+    """Fetch PR info and return (PRInfo, list_of_diff_batches)."""
+    if "github.com" in pr_url:
+        info = get_pr_info(pr_url)
+        return info, [info.diff]
+    return _gitlab_pr_with_batches(pr_url)
+
+
+def _gitlab_pr_with_batches(mr_url: str) -> tuple[PRInfo, list[str]]:
+    import httpx
+    from urllib.parse import quote
 
     token = os.environ["GITLAB_TOKEN"]
-    base_url = os.environ.get("GITLAB_URL", "https://gitlab.com")
-    gl = gitlab.Gitlab(base_url, private_token=token)
+    base_url = os.environ.get("GITLAB_URL", "https://gitlab.com").rstrip("/")
     project_path, mr_iid = _parse_gitlab_url(mr_url)
-    project = gl.projects.get(project_path)
-    mr = project.mergerequests.get(mr_iid)
-    diff = "\n".join(
-        d["diff"] for d in mr.diffs.list(get_all=True) if d.get("diff")
-    )
-    changed_files = [d["new_path"] for d in mr.diffs.list(get_all=True)]
+    encoded = quote(project_path, safe="")
+    headers = {"PRIVATE-TOKEN": token}
 
-    return PRInfo(
+    mr = httpx.get(
+        f"{base_url}/api/v4/projects/{encoded}/merge_requests/{mr_iid}",
+        headers=headers, timeout=30,
+    ).raise_for_status().json()
+
+    changes_resp = httpx.get(
+        f"{base_url}/api/v4/projects/{encoded}/merge_requests/{mr_iid}/changes",
+        headers=headers, timeout=30,
+    ).raise_for_status().json()
+
+    batches = _batch_changes(changes_resp.get("changes", []))
+
+    info = PRInfo(
         url=mr_url,
-        title=mr.title,
-        description=mr.description or "",
-        diff=diff,
-        changed_files=changed_files,
-        base_sha=mr.diff_refs["base_sha"],
-        head_sha=mr.diff_refs["head_sha"],
+        title=mr["title"],
+        description=mr.get("description") or "",
+        diff="\n".join(batches),
+        changed_files=[],
+        base_sha=mr["diff_refs"]["base_sha"],
+        head_sha=mr["diff_refs"]["head_sha"],
         repo_full_name=project_path,
     )
+    return info, batches
+
 
 
 def _gitlab_comment(mr_url: str, file: str, line: int, body: str) -> None:

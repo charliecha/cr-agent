@@ -1,0 +1,62 @@
+[adk] Reviewing https://gitlab.shalltry.com/inputmethod/latinime/-/merge_requests/568 ...
+[adk] 1 batch(es)
+/Users/chazongxun/Documents/GitHub/cr-agent/.venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py:95: UserWarning: [EXPERIMENTAL] feature FeatureName.JSON_SCHEMA_FOR_FUNC_DECL is enabled.
+  build_function_declaration(
+[adk] verdict=approve  findings=0
+[tokens] prompt=80577 completion=5392 total=85969
+{
+  "pr_url": "https://gitlab.shalltry.com/inputmethod/latinime/-/merge_requests/568",
+  "findings": [],
+  "summary": "No issues found. The changes look safe to merge.",
+  "verdict": "approve"
+}
+[adk] Reviewing https://gitlab.shalltry.com/inputmethod/latinime/-/merge_requests/568 ...
+[adk] 1 batch(es)
+/Users/chazongxun/Documents/GitHub/cr-agent/.venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py:95: UserWarning: [EXPERIMENTAL] feature FeatureName.JSON_SCHEMA_FOR_FUNC_DECL is enabled.
+  build_function_declaration(
+[adk] verdict=approve  findings=0
+[tokens] prompt=80883 completion=5392 total=86275
+{
+  "pr_url": "https://gitlab.shalltry.com/inputmethod/latinime/-/merge_requests/568",
+  "findings": [],
+  "summary": "No issues found. The changes look safe to merge.",
+  "verdict": "approve"
+}
+[adk] Reviewing https://gitlab.shalltry.com/inputmethod/latinime/-/merge_requests/568 ...
+[adk] 1 batch(es)
+/Users/chazongxun/Documents/GitHub/cr-agent/.venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py:95: UserWarning: [EXPERIMENTAL] feature FeatureName.JSON_SCHEMA_FOR_FUNC_DECL is enabled.
+  build_function_declaration(
+[file_read] repo_root=/Users/chazongxun/Documents/workspaces/trans/latinime filepath=features/font/impl/src/main/java/com/dada/inputmethod/font/FontManager.kt
+[file_read] repo_root=/Users/chazongxun/Documents/workspaces/trans/latinime filepath=features/font/api/src/main/java/com/dada/inputmethod/font/api/FontManagerApi.kt
+[grep] repo_root=/Users/chazongxun/Documents/workspaces/trans/latinime pattern=isCurrentAppSupportFontEncoding
+[file_read] repo_root=/Users/chazongxun/Documents/workspaces/trans/latinime filepath=features/font/impl/src/main/java/com/dada/inputmethod/font/view/FontsPanelView.kt
+[adk] verdict=approve  findings=0
+[tokens] prompt=125980 completion=5623 total=131603
+{
+  "pr_url": "https://gitlab.shalltry.com/inputmethod/latinime/-/merge_requests/568",
+  "findings": [],
+  "summary": "No issues found. The changes look safe to merge.",
+  "verdict": "approve"
+}
+[adk] Reviewing LOCAL ...
+[adk] 1 batch(es)
+/Users/chazongxun/Documents/GitHub/cr-agent/.venv/lib/python3.12/site-packages/google/adk/tools/function_tool.py:95: UserWarning: [EXPERIMENTAL] feature FeatureName.JSON_SCHEMA_FOR_FUNC_DECL is enabled.
+  build_function_declaration(
+[adk] verdict=block  findings=1
+[tokens] prompt=6717 completion=258 total=6975
+{
+  "pr_url": "LOCAL",
+  "findings": [
+    {
+      "file": "app/src/main/java/com/example/Test.kt",
+      "line_start": 12,
+      "line_end": 12,
+      "severity": "critical",
+      "category": "resource_leak",
+      "description": "Cursor is not closed after use, leading to potential resource leak and database connection exhaustion.",
+      "suggestion": "Close the cursor using cursor.close() in a try-finally block or use Kotlin's use() extension function."
+    }
+  ],
+  "summary": "Found 1 issue(s): 1 critical, 0 warning. Review required before merging.",
+  "verdict": "block"
+}

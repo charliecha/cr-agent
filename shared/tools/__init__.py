@@ -31,6 +31,8 @@ def file_read(repo_root: str, filepath: str, start_line: int = 1, end_line: int 
     Read a file from the local clone of the repo being reviewed.
     start_line/end_line: 1-indexed, inclusive. end_line=0 means read to EOF.
     """
+    import sys
+    print(f"[file_read] repo_root={repo_root} filepath={filepath}", file=sys.stderr)
     path = Path(repo_root) / filepath
     if not path.exists():
         return f"ERROR: {filepath} not found in {repo_root}"
@@ -46,6 +48,8 @@ def grep(repo_root: str, pattern: str, file_glob: str = "**/*") -> str:
     Grep for a pattern across the repo. Returns matching lines with file:line context.
     Capped at 100 lines to avoid flooding context.
     """
+    import sys
+    print(f"[grep] repo_root={repo_root} pattern={pattern}", file=sys.stderr)
     result = subprocess.run(
         ["grep", "-rn", "--include", _glob_to_include(file_glob), pattern, "."],
         capture_output=True, text=True, cwd=repo_root

@@ -7,11 +7,12 @@ Usage:
 
 import asyncio
 import json
-import re
+import os
+
 import click
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 from shared.schemas import CRReport, Finding, Severity
 from shared.git_client import post_inline_comment
@@ -22,7 +23,6 @@ _SEVERITY_RANK = {"critical": 2, "warning": 1, "info": 0}
 
 def _parse_findings(raw) -> list[Finding]:
     if isinstance(raw, str):
-        # Find {"findings": ...} specifically, not just the first {
         start = raw.find('{"findings"')
         if start == -1:
             start = raw.find('{ "findings"')
@@ -75,26 +75,24 @@ def _merge(pr_url: str, *raw_findings) -> CRReport:
     return CRReport(pr_url=pr_url, findings=findings, summary=summary, verdict=verdict)
 
 
-async def _run_adk(pr: str, repo: str) -> CRReport:
+def _dedup_findings(findings: list[Finding]) -> list[Finding]:
+    seen: dict[tuple, Finding] = {}
+    for f in findings:
+        key = (f.file, f.line_start, f.category)
+        if key not in seen or _SEVERITY_RANK[f.severity] > _SEVERITY_RANK[seen[key].severity]:
+            seen[key] = f
+    return list(seen.values())
+
+
+async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
     from google.adk.runners import InMemoryRunner
     from google.genai import types
-    from shared.tools import git_diff
     from adk.agents.root_agent import root_agent
-    import os
-
-    # For LOCAL fixtures, read pr.diff from the repo directory
-    if pr == "LOCAL":
-        diff_path = os.path.join(repo, "pr.diff")
-        with open(diff_path) as f:
-            diff_content = f.read()
-    else:
-        diff_content = git_diff(pr)
 
     runner = InMemoryRunner(agent=root_agent, app_name="cr_root")
     session = await runner.session_service.create_session(
         app_name="cr_root", user_id="ci"
     )
-
     message = types.Content(
         role="user",
         parts=[types.Part(text=(
@@ -103,31 +101,74 @@ async def _run_adk(pr: str, repo: str) -> CRReport:
             f"Diff:\n{diff_content}"
         ))],
     )
-
-    final_text = ""
-    async for event in runner.run_async(
+    async for _ in runner.run_async(
         user_id=session.user_id,
         session_id=session.id,
         new_message=message,
     ):
-        if event.content and event.content.parts:
-            for part in event.content.parts:
-                if part.text:
-                    final_text = part.text
+        pass
 
-    session_state = (await runner.session_service.get_session(
+    state = (await runner.session_service.get_session(
         app_name="cr_root", user_id="ci", session_id=session.id
     )).state
 
-    return _merge(
+    # Debug: print planner output
+    active_domains = state.get("active_domains")
+    if active_domains:
+        click.echo(f"[planner] active_domains={active_domains}", err=True)
+    else:
+        click.echo("[planner] WARNING: active_domains not found in state", err=True)
+
+    report = _merge(
         pr,
-        session_state.get("android_findings"),
-        session_state.get("backend_findings"),
-        session_state.get("security_findings"),
-        session_state.get("concurrency_findings"),
-        session_state.get("caching_findings"),
-        session_state.get("db_schema_findings"),
+        state.get("android_findings"),
+        state.get("backend_findings"),
+        state.get("security_findings"),
+        state.get("concurrency_findings"),
+        state.get("caching_findings"),
+        state.get("db_schema_findings"),
     )
+    return report.findings
+
+
+async def _run_adk(pr: str, repo: str) -> CRReport:
+    if pr == "LOCAL":
+        diff_path = os.path.join(repo, "pr.diff")
+        with open(diff_path) as f:
+            diff_content = f.read()
+        batches = [diff_content]
+    else:
+        import subprocess
+        subprocess.run(["git", "pull"], cwd=repo, check=True, capture_output=True)
+        from shared.git_client import get_pr_diff_batches
+        _, batches = get_pr_diff_batches(pr)
+
+    click.echo(f"[adk] {len(batches)} batch(es)", err=True)
+
+    tasks = [_run_batch(pr, repo, batch) for batch in batches]
+    results = await asyncio.gather(*tasks)
+
+    all_findings: list[Finding] = []
+    for findings in results:
+        all_findings.extend(findings)
+
+    findings = _dedup_findings(all_findings)
+
+    if any(f.severity == Severity.CRITICAL for f in findings):
+        verdict = "block"
+    elif any(f.severity == Severity.WARNING for f in findings):
+        verdict = "request_changes"
+    else:
+        verdict = "approve"
+
+    n_crit = sum(1 for f in findings if f.severity == Severity.CRITICAL)
+    n_warn = sum(1 for f in findings if f.severity == Severity.WARNING)
+    summary = (
+        "No issues found. The changes look safe to merge."
+        if not findings else
+        f"Found {len(findings)} issue(s): {n_crit} critical, {n_warn} warning. Review required before merging."
+    )
+    return CRReport(pr_url=pr, findings=findings, summary=summary, verdict=verdict)
 
 
 @click.command()
@@ -140,9 +181,9 @@ def main(pr: str, repo: str, post_comments: bool, output: str):
     click.echo(f"[adk] Reviewing {pr} ...", err=True)
     set_langfuse_context("adk", pr)
     try:
-        report = asyncio.run(asyncio.wait_for(_run_adk(pr, repo), timeout=120))
+        report = asyncio.run(asyncio.wait_for(_run_adk(pr, repo), timeout=600))
     except TimeoutError:
-        click.echo("[adk] ERROR: timed out after 120s", err=True)
+        click.echo("[adk] ERROR: timed out after 600s", err=True)
         raise SystemExit(1)
 
     report_json = report.model_dump_json(indent=2)

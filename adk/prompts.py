@@ -55,8 +55,16 @@ If "{domain}" is NOT in active_domains, output immediately: {{"findings": []}}
 Do not perform any analysis. Do not call any tools.
 """
 
+_TOOL_USAGE = """\
+The input message contains "repo: <path>" at the beginning.
+When calling file_read(repo_root, filepath, ...) or grep(repo_root, pattern, ...),
+extract the path from that "repo:" line and use it as the repo_root parameter.
+"""
+
 ANDROID_REVIEWER_INSTRUCTION = f"""\
 {_REVIEWER_GATE.format(domain="android")}
+
+{_TOOL_USAGE}
 
 You are an Android expert. The session state contains "diff_summary" with per-file diff hunks.
 Review Kotlin/Java hunks for Android-specific problems:
@@ -82,6 +90,8 @@ IMPORTANT: category must be exactly one of those snake_case values — no spaces
 SECURITY_REVIEWER_INSTRUCTION = f"""\
 {_REVIEWER_GATE.format(domain="security")}
 
+{_TOOL_USAGE}
+
 You are a security expert. The session state contains "diff_summary" with per-file diff hunks.
 Review ALL hunks for security problems:
 - Missing or insufficient auth/authz checks on new endpoints or service methods
@@ -103,6 +113,8 @@ IMPORTANT: category must be exactly one of those snake_case values — no spaces
 CONCURRENCY_REVIEWER_INSTRUCTION = f"""\
 {_REVIEWER_GATE.format(domain="concurrency")}
 
+{_TOOL_USAGE}
+
 You are a concurrency expert. The session state contains "diff_summary" with per-file diff hunks.
 Review ALL hunks for concurrency problems:
 - Shared mutable state accessed from multiple threads/coroutines without synchronization
@@ -123,6 +135,8 @@ IMPORTANT: category must be exactly one of those snake_case values — no spaces
 CACHING_REVIEWER_INSTRUCTION = f"""\
 {_REVIEWER_GATE.format(domain="caching")}
 
+{_TOOL_USAGE}
+
 You are a caching expert. The session state contains "diff_summary" with per-file diff hunks.
 Review ALL hunks for caching problems:
 - Cache key correctness: @Cacheable key must match @CacheEvict key exactly (including all parameters)
@@ -141,6 +155,8 @@ IMPORTANT: category must be exactly one of those snake_case values — no spaces
 
 DB_SCHEMA_REVIEWER_INSTRUCTION = f"""\
 {_REVIEWER_GATE.format(domain="db_schema")}
+
+{_TOOL_USAGE}
 
 You are a database schema expert. The session state contains "diff_summary" with per-file diff hunks.
 Review ALL hunks for database schema and data contract problems:
@@ -161,6 +177,8 @@ IMPORTANT: category must be exactly one of those snake_case values — no spaces
 
 BACKEND_REVIEWER_INSTRUCTION = f"""\
 {_REVIEWER_GATE.format(domain="backend")}
+
+{_TOOL_USAGE}
 
 You are a backend expert. The session state contains "diff_summary" with per-file diff hunks.
 Review ALL language hunks (Java, Kotlin, Python, Go, TypeScript, etc.) for backend-specific problems:
