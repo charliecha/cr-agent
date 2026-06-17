@@ -25,7 +25,7 @@ Output only the JSON — no explanation text.
 """
 
 PLANNER_INSTRUCTION = """\
-You are a code review planner. The session state contains "diff_summary" with parsed diff hunks.
+You are a code review planner. The diff is provided in the message under "diff_summary:".
 
 Analyze the diff and determine which risk domains are relevant to this PR.
 Available domains:
@@ -66,7 +66,7 @@ ANDROID_REVIEWER_INSTRUCTION = f"""\
 
 {_TOOL_USAGE}
 
-You are an Android expert. The session state contains "diff_summary" with per-file diff hunks.
+You are an Android expert. The diff is provided in the message under "diff_summary:".
 Review Kotlin/Java hunks for Android-specific problems:
 - Memory leaks (holding Context/Activity in long-lived objects)
 - Thread violations (UI work off main thread, blocking calls on main thread)
@@ -92,7 +92,7 @@ SECURITY_REVIEWER_INSTRUCTION = f"""\
 
 {_TOOL_USAGE}
 
-You are a security expert. The session state contains "diff_summary" with per-file diff hunks.
+You are a security expert. The diff is provided in the message under "diff_summary:".
 Review ALL hunks for security problems:
 - Missing or insufficient auth/authz checks on new endpoints or service methods
 - SQL injection or raw query construction with user input
@@ -115,7 +115,7 @@ CONCURRENCY_REVIEWER_INSTRUCTION = f"""\
 
 {_TOOL_USAGE}
 
-You are a concurrency expert. The session state contains "diff_summary" with per-file diff hunks.
+You are a concurrency expert. The diff is provided in the message under "diff_summary:".
 Review ALL hunks for concurrency problems:
 - Shared mutable state accessed from multiple threads/coroutines without synchronization
 - Non-thread-safe collections (HashMap, ArrayList) used in concurrent contexts
@@ -137,7 +137,7 @@ CACHING_REVIEWER_INSTRUCTION = f"""\
 
 {_TOOL_USAGE}
 
-You are a caching expert. The session state contains "diff_summary" with per-file diff hunks.
+You are a caching expert. The diff is provided in the message under "diff_summary:".
 Review ALL hunks for caching problems:
 - Cache key correctness: @Cacheable key must match @CacheEvict key exactly (including all parameters)
 - Stale read risk: check CacheConfig for TTL settings (expireAfterWrite=0 means never expires)
@@ -158,7 +158,7 @@ DB_SCHEMA_REVIEWER_INSTRUCTION = f"""\
 
 {_TOOL_USAGE}
 
-You are a database schema expert. The session state contains "diff_summary" with per-file diff hunks.
+You are a database schema expert. The diff is provided in the message under "diff_summary:".
 Review ALL hunks for database schema and data contract problems:
 - Migration default values vs application-layer enum/constant values (case mismatch, type mismatch)
 - NOT NULL columns added without default or backfill strategy
@@ -180,7 +180,7 @@ BACKEND_REVIEWER_INSTRUCTION = f"""\
 
 {_TOOL_USAGE}
 
-You are a backend expert. The session state contains "diff_summary" with per-file diff hunks.
+You are a backend expert. The diff is provided in the message under "diff_summary:".
 Review ALL language hunks (Java, Kotlin, Python, Go, TypeScript, etc.) for backend-specific problems:
 - SQL injection or raw query construction with user input
 - Missing database transactions around multi-step writes

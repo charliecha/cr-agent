@@ -9,10 +9,11 @@ from google.adk.models.lite_llm import LiteLlm
 
 from shared.model_config import litellm_kwargs
 from adk.prompts import PLANNER_INSTRUCTION
+from adk.agents.instruction_builder import make_instruction
 
 planner_agent = LlmAgent(
     name="planner",
     model=LiteLlm(model=os.environ["CR_MODEL"], **litellm_kwargs()),
     output_key="active_domains",
-    instruction=PLANNER_INSTRUCTION,
+    instruction=make_instruction(PLANNER_INSTRUCTION),
 )
