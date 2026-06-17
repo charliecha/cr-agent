@@ -112,7 +112,9 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
         app_name="cr_root", user_id="ci", session_id=session.id
     )).state
 
-    active_domains = state.get("active_domains")
+    from adk.agents.gate import _parse_active_domains
+    raw_domains = state.get("active_domains")
+    active_domains = _parse_active_domains(raw_domains)
     if active_domains:
         click.echo(f"[planner] active_domains={active_domains} ({len(active_domains)}/6 reviewers active)", err=True)
     else:
