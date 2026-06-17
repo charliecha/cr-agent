@@ -208,3 +208,52 @@ def _gitlab_comment(mr_url: str, file: str, line: int, body: str) -> None:
             "new_line": line,
         },
     })
+
+
+_CR_AGENT_MARKER = "<!-- cr-agent -->"
+
+
+def upsert_mr_comment(mr_url: str, body: str) -> None:
+    """Post or update the cr-agent summary comment on a GitLab MR.
+
+    Uses a hidden HTML marker to find the previous comment and edit it,
+    so re-running review never creates duplicate notes.
+    """
+    import httpx
+    from urllib.parse import quote
+
+    token = os.environ["GITLAB_TOKEN"]
+    base_url = os.environ.get("GITLAB_URL", "https://gitlab.com").rstrip("/")
+    project_path, mr_iid = _parse_gitlab_url(mr_url)
+    encoded = quote(project_path, safe="")
+    headers = {"PRIVATE-TOKEN": token}
+    marked_body = f"{_CR_AGENT_MARKER}\n{body}"
+
+    # Search existing notes for our marker (paginate up to 100)
+    notes = httpx.get(
+        f"{base_url}/api/v4/projects/{encoded}/merge_requests/{mr_iid}/notes",
+        headers=headers,
+        params={"per_page": 100, "sort": "desc"},
+        timeout=30,
+    ).raise_for_status().json()
+
+    existing_id = None
+    for note in notes:
+        if _CR_AGENT_MARKER in note.get("body", ""):
+            existing_id = note["id"]
+            break
+
+    if existing_id:
+        httpx.put(
+            f"{base_url}/api/v4/projects/{encoded}/merge_requests/{mr_iid}/notes/{existing_id}",
+            headers=headers,
+            json={"body": marked_body},
+            timeout=30,
+        ).raise_for_status()
+    else:
+        httpx.post(
+            f"{base_url}/api/v4/projects/{encoded}/merge_requests/{mr_iid}/notes",
+            headers=headers,
+            json={"body": marked_body},
+            timeout=30,
+        ).raise_for_status()

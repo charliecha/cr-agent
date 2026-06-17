@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from shared.schemas import CRReport, Finding, Severity
-from shared.git_client import post_inline_comment
+from shared.git_client import post_inline_comment, upsert_mr_comment
 from shared.model_config import set_langfuse_context, token_counter
 
 _SEVERITY_RANK = {"critical": 2, "warning": 1, "info": 0}
@@ -287,10 +287,31 @@ def main(pr: str, repo: str | None, post_comments: bool, output: str):
 
 
 def _post_findings(report: CRReport) -> None:
-    for f in report.findings:
-        body = f"**[{f.severity.upper()}] {f.category}**\n\n{f.description}\n\n> {f.suggestion}"
-        post_inline_comment(report.pr_url, f.file, f.line_start, body)
-        click.echo(f"  commented on {f.file}:{f.line_start}", err=True)
+    body = _format_mr_comment(report)
+    upsert_mr_comment(report.pr_url, body)
+    click.echo(f"[adk] Posted/updated MR comment ({len(report.findings)} findings)", err=True)
+
+
+def _format_mr_comment(report: CRReport) -> str:
+    verdict_icon = {"approve": "✅", "request_changes": "⚠️", "block": "🚫"}.get(report.verdict, "")
+    lines = [
+        f"## {verdict_icon} CR Agent Review",
+        "",
+        f"**Verdict:** `{report.verdict}`",
+        f"**Summary:** {report.summary}",
+    ]
+    if report.findings:
+        lines += [
+            "",
+            "| File | Line | Severity | Category | Description |",
+            "|------|------|----------|----------|-------------|",
+        ]
+        for f in report.findings:
+            desc = f.description.replace("|", "\\|")
+            lines.append(
+                f"| `{f.file}` | {f.line_start} | {f.severity} | {f.category} | {desc} |"
+            )
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":
