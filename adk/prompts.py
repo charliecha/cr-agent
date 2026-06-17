@@ -37,11 +37,14 @@ Available domains:
 - "concurrency"  : Race conditions, shared mutable state, missing locks/mutex
 - "caching"      : Cache TTL, cache key correctness, stale reads, cache invalidation
 - "db_schema"    : Migration vs application-layer data contract, column defaults, type mismatches
-- "backend"      : N+1 queries, missing transactions, API contract mismatches, error handling
+- "backend"      : General code quality for Java/Kotlin/Python/Go/TypeScript — null dereference,
+                   resource leaks (unclosed streams/connections/cursors), N+1 queries,
+                   missing transactions, API contract mismatches, unhandled errors
 
 Rules:
 - Include a domain only if the diff contains code that is directly relevant to it.
 - Always include at least one domain.
+- A PR adding or modifying Java/Kotlin/Python/Go/TypeScript code → always include "backend".
 - A PR touching Kotlin/Java Android UI code → include "android".
 - A PR touching SQL migrations or DB queries → include "db_schema" and/or "backend".
 - A PR touching auth, roles, permissions → include "security".
@@ -185,6 +188,8 @@ BACKEND_REVIEWER_INSTRUCTION = f"""\
 
 You are a backend expert. The diff is provided in the message under "diff_summary:".
 Review ALL language hunks (Java, Kotlin, Python, Go, TypeScript, etc.) for backend-specific problems:
+- Null dereference: calling methods on values that can be null without null checks
+- Resource leaks: streams, connections, cursors opened but never closed (use try-with-resources)
 - SQL injection or raw query construction with user input
 - Missing database transactions around multi-step writes
 - N+1 query patterns (calling DB inside a loop)
