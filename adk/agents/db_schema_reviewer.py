@@ -11,6 +11,7 @@ from google.adk.tools import FunctionTool
 from shared.tools import file_read as _file_read, grep as _grep
 from shared.model_config import litellm_kwargs
 from adk.prompts import DB_SCHEMA_REVIEWER_INSTRUCTION
+from adk.agents.gate import make_domain_gate
 
 
 def _file_read_tool(repo_root: str, filepath: str, start_line: int = 1, end_line: int = 0) -> str:
@@ -27,4 +28,5 @@ db_schema_reviewer_agent = LlmAgent(
     output_key="db_schema_findings",
     tools=[FunctionTool(_file_read_tool), FunctionTool(_grep_tool)],
     instruction=DB_SCHEMA_REVIEWER_INSTRUCTION,
+    before_agent_callback=make_domain_gate("db_schema"),
 )
