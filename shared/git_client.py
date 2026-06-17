@@ -242,7 +242,8 @@ def _gitlab_comment(mr_url: str, file: str, line: int, body: str) -> None:
     })
 
 
-_CR_AGENT_MARKER = "<!-- cr-agent -->"
+_CR_AGENT_MARKER = "<!-- cr-agent-summary -->"
+_CR_AGENT_INLINE_MARKER = "<!-- cr-agent-inline -->"
 
 
 def upsert_mr_comment(mr_url: str, body: str) -> None:
@@ -352,7 +353,7 @@ def get_existing_inline_comments(mr_url: str) -> set:
             break
         for d in discussions:
             for note in d.get("notes", []):
-                if _CR_AGENT_MARKER not in note.get("body", ""):
+                if _CR_AGENT_INLINE_MARKER not in note.get("body", ""):
                     continue
                 pos = note.get("position") or {}
                 f = pos.get("new_path")

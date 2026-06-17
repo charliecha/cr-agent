@@ -299,7 +299,7 @@ def _post_findings(report: CRReport, info: PRInfo) -> None:
         if f.file in existing:
             skipped += 1
             continue
-        comment = f"<!-- cr-agent -->\n**[{f.severity}] {f.category}**\n\n{f.description}\n\n> {f.suggestion}"
+        comment = f"<!-- cr-agent-inline -->\n**[{f.severity}] {f.category}**\n\n{f.description}\n\n> {f.suggestion}"
         try:
             ok = post_inline_comment_gitlab(report.pr_url, f.file, f.line_start, comment, info)
             if ok:
