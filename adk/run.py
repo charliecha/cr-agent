@@ -21,6 +21,18 @@ from shared.model_config import set_langfuse_context, token_counter
 _SEVERITY_RANK = {"critical": 2, "warning": 1, "info": 0}
 
 
+def _is_test_file(path: str) -> bool:
+    return (
+        '/test/' in path or
+        '/tests/' in path or
+        '/androidTest/' in path or
+        path.endswith('Test.kt') or
+        path.endswith('Test.java') or
+        path.endswith('Test.py') or
+        path.endswith('_test.go')
+    )
+
+
 def _filter_test_files(diff_content: str) -> str:
     """Remove test file hunks from diff. Let CI handle test code validation."""
     lines = diff_content.split('\n')
@@ -28,18 +40,15 @@ def _filter_test_files(diff_content: str) -> str:
     skip_current_hunk = False
 
     for line in lines:
+        # Standard git diff format: "diff --git a/path b/path"
         if line.startswith('diff --git'):
-            # Check if this is a test file
-            # Patterns: */test/*, *Test.kt, *Test.java, *Test.py, *_test.go
-            skip_current_hunk = (
-                '/test/' in line or
-                'Test.kt' in line or
-                'Test.java' in line or
-                'Test.py' in line or
-                '_test.go' in line or
-                '/tests/' in line or
-                '/androidTest/' in line
-            )
+            skip_current_hunk = _is_test_file(line)
+            if skip_current_hunk:
+                continue
+        # GitLab API diff format: "--- path"
+        elif line.startswith('--- '):
+            path = line[4:].strip()
+            skip_current_hunk = _is_test_file(path)
             if skip_current_hunk:
                 continue
 
