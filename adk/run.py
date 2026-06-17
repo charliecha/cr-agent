@@ -183,9 +183,14 @@ async def _run_adk(pr: str, repo: str) -> CRReport:
         batches = [diff_content]
     else:
         import subprocess
-        subprocess.run(["git", "pull"], cwd=repo, check=True, capture_output=True)
         from shared.git_client import get_pr_diff_batches
-        _, batches = get_pr_diff_batches(pr)
+        info, batches = get_pr_diff_batches(pr)
+        if info.target_branch:
+            click.echo(f"[adk] Checking out target branch: {info.target_branch}", err=True)
+            subprocess.run(["git", "fetch", "origin"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(["git", "checkout", info.target_branch], cwd=repo, check=True, capture_output=True)
+        else:
+            subprocess.run(["git", "pull"], cwd=repo, check=True, capture_output=True)
 
     click.echo(f"[adk] {len(batches)} batch(es)", err=True)
 

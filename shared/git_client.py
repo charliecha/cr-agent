@@ -17,6 +17,7 @@ class PRInfo:
     base_sha: str
     head_sha: str
     repo_full_name: str          # "owner/repo"
+    target_branch: str = ""      # branch to checkout before review
 
 
 def get_pr_info(pr_url: str) -> PRInfo:
@@ -184,6 +185,7 @@ def _gitlab_pr_with_batches(mr_url: str) -> tuple[PRInfo, list[str]]:
         base_sha=mr["diff_refs"]["base_sha"],
         head_sha=mr["diff_refs"]["head_sha"],
         repo_full_name=project_path,
+        target_branch=mr.get("target_branch", ""),
     )
     return info, batches
 
