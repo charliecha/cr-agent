@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from shared.schemas import CRReport, Finding, Severity
-from shared.git_client import post_inline_comment, upsert_mr_comment, post_inline_comment_gitlab, PRInfo
+from shared.git_client import post_inline_comment, upsert_mr_comment, post_inline_comment_gitlab, get_existing_inline_comments, PRInfo
 from shared.model_config import set_langfuse_context, token_counter
 
 _SEVERITY_RANK = {"critical": 2, "warning": 1, "info": 0}
@@ -289,13 +289,17 @@ def main(pr: str, repo: str | None, post_comments: bool, output: str):
 
 
 def _post_findings(report: CRReport, info: PRInfo) -> None:
-    # 1. 整体评论（保持不变）
+    # 1. 整体评论（upsert，保持不变）
     upsert_mr_comment(report.pr_url, _format_mr_comment(report))
 
-    # 2. inline comments（逐个，失败不中断整体评论）
-    posted = 0
+    # 2. inline comments（发前查已有，跳过重复）
+    existing = get_existing_inline_comments(report.pr_url)
+    posted = skipped = 0
     for f in report.findings:
-        comment = f"**[{f.severity}] {f.category}**\n\n{f.description}\n\n> {f.suggestion}"
+        if (f.file, f.line_start) in existing:
+            skipped += 1
+            continue
+        comment = f"<!-- cr-agent -->\n**[{f.severity}] {f.category}**\n\n{f.description}\n\n> {f.suggestion}"
         try:
             ok = post_inline_comment_gitlab(report.pr_url, f.file, f.line_start, comment, info)
             if ok:
@@ -304,7 +308,7 @@ def _post_findings(report: CRReport, info: PRInfo) -> None:
             click.echo(f"[adk] inline comment failed {f.file}:{f.line_start}: {e}", err=True)
 
     click.echo(
-        f"[adk] Posted/updated MR comment + {posted}/{len(report.findings)} inline comments",
+        f"[adk] Posted/updated MR comment + {posted} new inline comments ({skipped} skipped, already exists)",
         err=True,
     )
 

@@ -326,3 +326,38 @@ def post_inline_comment_gitlab(mr_url: str, file: str, line: int, body: str, inf
         timeout=30,
     ).raise_for_status()
     return True
+
+
+def get_existing_inline_comments(mr_url: str) -> set:
+    """Return set of (file, line) tuples for cr-agent inline comments already on this MR."""
+    import httpx
+    from urllib.parse import quote
+
+    token = os.environ["GITLAB_TOKEN"]
+    base_url = os.environ.get("GITLAB_URL", "https://gitlab.com").rstrip("/")
+    project_path, mr_iid = _parse_gitlab_url(mr_url)
+    encoded = quote(project_path, safe="")
+    headers = {"PRIVATE-TOKEN": token}
+
+    existing = set()
+    page = 1
+    while True:
+        discussions = httpx.get(
+            f"{base_url}/api/v4/projects/{encoded}/merge_requests/{mr_iid}/discussions",
+            headers=headers,
+            params={"per_page": 100, "page": page},
+            timeout=30,
+        ).raise_for_status().json()
+        if not discussions:
+            break
+        for d in discussions:
+            for note in d.get("notes", []):
+                if _CR_AGENT_MARKER not in note.get("body", ""):
+                    continue
+                pos = note.get("position") or {}
+                f = pos.get("new_path")
+                ln = pos.get("new_line")
+                if f and ln:
+                    existing.add((f, ln))
+        page += 1
+    return existing
