@@ -7,7 +7,10 @@ _FINDING_SCHEMA = (
     '{ "findings": [ { "file": ..., "line_start": ..., "line_end": ..., '
     '"severity": "critical"|"warning"|"info", '
     f'"category": {CATEGORIES}, '
-    '"description": ..., "suggestion": ... } ] }'
+    '"description": ..., "suggestion": ... } ] }\n'
+    'IMPORTANT: line_start and line_end must be the L-numbers shown in the diff '
+    '(e.g. if the problem is on "L16  +return value.toUpperCase()", set line_start=16). '
+    'Never guess or compute line numbers yourself.'
 )
 
 DIFF_READER_INSTRUCTION = """\

@@ -143,6 +143,29 @@ def _parse_hunk_new_lines(diff_text: str) -> set:
     return result
 
 
+def _annotate_line_numbers(diff_text: str) -> str:
+    """Prefix each added (+) line with its absolute line number (L<n>)."""
+    result = []
+    new_line = 0
+    for line in diff_text.split('\n'):
+        if line.startswith('@@'):
+            m = re.search(r'\+(\d+)', line)
+            if m:
+                new_line = int(m.group(1)) - 1
+            result.append(line)
+        elif line.startswith('+++') or line.startswith('---'):
+            result.append(line)
+        elif line.startswith('+'):
+            new_line += 1
+            result.append(f'L{new_line:<4}{line}')
+        elif line.startswith('-'):
+            result.append(line)
+        else:
+            new_line += 1
+            result.append(line)
+    return '\n'.join(result)
+
+
 def _batch_changes(changes: list[dict]) -> list[str]:
     """Filter non-code files, truncate large hunks, split into batches by char budget."""
     filtered = []
@@ -155,6 +178,7 @@ def _batch_changes(changes: list[dict]) -> list[str]:
         lines = d.split("\n")
         if len(lines) > _MAX_FILE_LINES:
             d = "\n".join(lines[:_MAX_FILE_LINES]) + "\n... (truncated)"
+        d = _annotate_line_numbers(d)
         filtered.append((path, d))
 
     batches, current, current_len = [], [], 0
