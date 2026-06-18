@@ -14,20 +14,6 @@ _FINDING_SCHEMA = (
     'Never guess or compute line numbers yourself.'
 )
 
-DIFF_READER_INSTRUCTION = """\
-You receive a unified diff in the message.
-Parse it into per-file hunks and output a JSON object with this exact structure:
-{
-  "pr_url": "<the pr_url from the message>",
-  "hunks": [
-    { "file": "<relative path>", "lang": "<kotlin|java|python|go|typescript|sql|other>", "diff_text": "<the hunk text for this file>" }
-  ]
-}
-Include only files that have actual code changes (skip files with no diff lines).
-Infer lang from the file extension.
-Output only the JSON — no explanation text.
-"""
-
 PLANNER_INSTRUCTION = """\
 You are a code review planner. The diff is provided in the message under "diff_summary:".
 

@@ -28,6 +28,6 @@ frontend_reviewer_agent = LlmAgent(
     model=LiteLlm(model=os.environ["CR_MODEL"], **litellm_kwargs()),
     output_key="frontend_findings",
     tools=[FunctionTool(_file_read_tool), FunctionTool(_grep_tool)],
-    instruction=make_instruction(FRONTEND_REVIEWER_INSTRUCTION),
+    instruction=make_instruction(FRONTEND_REVIEWER_INSTRUCTION, file_filter=[".vue", ".ts", ".tsx"]),
     before_agent_callback=make_domain_gate("frontend"),
 )

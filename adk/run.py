@@ -9,6 +9,8 @@ import asyncio
 import json
 import os
 
+from adk.diff_parser import parse_diff
+
 import click
 from dotenv import load_dotenv
 
@@ -132,16 +134,18 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
         click.echo("[adk] All changes are in test files, skipping review", err=True)
         return []
 
+    diff_summary = json.dumps(parse_diff(pr, filtered_diff))
+
     runner = InMemoryRunner(agent=root_agent, app_name="cr_root")
     session = await runner.session_service.create_session(
-        app_name="cr_root", user_id="ci"
+        app_name="cr_root", user_id="ci",
+        state={"diff_summary": diff_summary},
     )
     message = types.Content(
         role="user",
         parts=[types.Part(text=(
             f"pr_url: {pr}\n"
-            f"repo: {repo}\n\n"
-            f"Diff:\n{filtered_diff}"
+            f"repo: {repo}"
         ))],
     )
     async for _ in runner.run_async(

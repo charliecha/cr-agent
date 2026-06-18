@@ -1,6 +1,6 @@
 """
 android_reviewer_agent: reviews Kotlin/Java hunks for Android-specific issues.
-Reads diff_summary from session state written by diff_reader_agent.
+Reads diff_summary from session state (pre-populated by parse_diff in run.py).
 """
 
 import os
@@ -28,6 +28,6 @@ android_reviewer_agent = LlmAgent(
     model=LiteLlm(model=os.environ["CR_MODEL"], **litellm_kwargs()),
     output_key="android_findings",
     tools=[FunctionTool(_file_read_tool), FunctionTool(_grep_tool)],
-    instruction=make_instruction(ANDROID_REVIEWER_INSTRUCTION),
+    instruction=make_instruction(ANDROID_REVIEWER_INSTRUCTION, file_filter=[".kt", ".java"]),
     before_agent_callback=make_domain_gate("android"),
 )
