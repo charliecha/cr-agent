@@ -37,7 +37,7 @@ Available domains:
 - "security"     : Auth/authz checks, SQL injection, secrets, input validation
 - "concurrency"  : Race conditions, shared mutable state, missing locks/mutex
 - "caching"      : Cache TTL, cache key correctness, stale reads, cache invalidation
-- "db_schema"    : Migration vs application-layer data contract, column defaults, type mismatches
+- "db_schema"    : Migration files and data contracts — column defaults, type/case mismatches, NOT NULL without backfill
 - "backend"      : General code quality for Java/Kotlin/Python/Go/TypeScript — null dereference,
                    resource leaks (unclosed streams/connections/cursors), N+1 queries,
                    missing transactions, API contract mismatches, unhandled errors
@@ -50,7 +50,7 @@ Rules:
 - A PR with .vue or .ts files containing component/form/API logic → include "frontend".
 - A PR with Java/Kotlin/Python/Go/TypeScript code changes that are not purely structural (renaming, formatting) → include "backend".
 - A PR touching Kotlin/Java Android UI code → include "android".
-- A PR touching SQL migrations or DB queries → include "db_schema" and/or "backend".
+- A PR touching SQL migrations or DB queries → include "backend". Also include "db_schema" ONLY if the diff contains .sql files, files in a migration/ flyway/ changelog/ liquibase/ db/migrate/ path, or @Entity/@Column annotations with schema-level changes (column type/default/nullable). Do NOT include "db_schema" for plain service/repository Java/Kotlin files that only contain queries or business logic.
 - A PR touching auth, roles, permissions → include "security".
 - A PR touching @Cacheable/@Cache* or any cache layer → include "caching".
 - A PR touching shared state, coroutines, threads → include "concurrency".
@@ -116,6 +116,7 @@ Review ALL hunks for security problems:
 
 Use file_read and grep to check related security config files, role definitions, or callers when needed.
 Skip style, formatting, and non-security issues.
+Do NOT report: null dereference, resource leaks, N+1 queries (→ backend reviewer), Android lifecycle issues (→ android reviewer), race conditions (→ concurrency reviewer).
 
 After completing all tool calls, output ONLY the JSON object below — no explanation text before or after it:
 {_FINDING_SCHEMA}
@@ -135,6 +136,8 @@ Review ALL hunks for concurrency problems:
 - Check-then-act race conditions (read-check-write without atomicity)
 - Missing mutex, synchronized blocks, or ConcurrentHashMap
 - Coroutine dispatcher mismatches (e.g. UI work on IO dispatcher or vice versa)
+
+Do NOT report: Android-specific main thread violations (→ android reviewer), general null safety or resource leaks (→ backend reviewer).
 
 Use file_read and grep to check how shared state is accessed across the codebase when needed.
 Skip style, formatting, and non-concurrency issues.
@@ -157,6 +160,8 @@ Review ALL hunks for caching problems:
 - Missing cache eviction after writes/updates
 - Caching mutable objects that can be modified after caching
 
+Do NOT report: null dereference, resource leaks (→ backend reviewer), auth/authz issues (→ security reviewer).
+
 Use file_read to check CacheConfig or cache configuration files when @Cacheable/@CacheEvict is used.
 Always read the cache configuration file to verify TTL settings.
 
@@ -172,15 +177,14 @@ DB_SCHEMA_REVIEWER_INSTRUCTION = f"""\
 {_TOOL_USAGE}
 
 You are a database schema expert. The diff is provided in the message under "diff_summary:".
-Review ALL hunks for database schema and data contract problems:
+Focus ONLY on migration files and schema contracts. Skip service/repository/impl Java/Kotlin files.
+Review for database schema and data contract problems:
 - Migration default values vs application-layer enum/constant values (case mismatch, type mismatch)
 - NOT NULL columns added without default or backfill strategy
-- Missing database transactions around multi-step writes
-- N+1 query patterns (DB call inside a loop)
-- API contract mismatches (field renamed or type changed on one side only)
+- Column type changes that break existing application-layer assumptions
+- API contract mismatches (field renamed or type changed between migration and entity/DTO)
 
-Use file_read to check related migration files, entity classes, or repository implementations.
-When a migration adds a column, always check how the application layer references that column.
+If there are no migration files (.sql, files in migration/flyway/changelog/liquibase paths, or @Entity schema changes), output: {{"findings": []}}
 
 After completing all tool calls, output ONLY the JSON object below — no explanation text before or after it:
 {_FINDING_SCHEMA}
@@ -197,14 +201,13 @@ You are a backend expert. The diff is provided in the message under "diff_summar
 Review ALL language hunks (Java, Kotlin, Python, Go, TypeScript, etc.) for backend-specific problems:
 - Null dereference: calling methods on values that can be null without null checks
 - Resource leaks: streams, connections, cursors opened but never closed (use try-with-resources)
-- SQL injection or raw query construction with user input
 - Missing database transactions around multi-step writes
 - N+1 query patterns (calling DB inside a loop)
-- Race conditions / missing mutex in concurrent code
-- Missing auth/authz checks on new endpoints
 - API contract mismatches (field renamed or type changed on one side only)
 - Data contract mismatches between migration defaults and application-layer values (e.g. case mismatch between DEFAULT 'user' in SQL and Role.USER.name() = "USER" in Java)
 - Unhandled error returns (especially in Go)
+
+Do NOT report: SQL injection, auth/authz issues, hardcoded secrets (→ security reviewer), race conditions, missing mutex, thread-safety issues (→ concurrency reviewer).
 
 RULE: If any method/function signature changes (new/removed/renamed parameter),
 you MUST call grep to find all callers before concluding there is no bug.
