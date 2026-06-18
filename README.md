@@ -35,9 +35,41 @@ python -m adk.run --pr <MR_URL>
 deactivate  # 退出 .venv
 ```
 
-> **注意**：项目依赖在 `.venv` 内，系统 Python 或其他虚拟环境中直接运行会报 `ModuleNotFoundError`。
+> **注意**：项目依赖在 `.venv` 内，系统 Python（或 conda base 等其他环境）中直接运行会报 `ModuleNotFoundError`。
 
 **`REPOS_DIR` 自动检测规则**：从 PR URL 提取项目名（`latincore`），拼接为 `$REPOS_DIR/latincore`。目录名须与 GitLab 项目名一致。
+
+## 部署（不安装 uv 的环境）
+
+若目标机器没有 uv，可用标准 pip 流程部署：
+
+### 第一步：在开发机导出依赖（只需做一次，提交到仓库）
+
+```bash
+uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.txt
+```
+
+- `--frozen`：严格使用 `uv.lock`，不更新依赖
+- `--no-emit-project`：排除项目自身（避免 `-e .` 与 hash 校验冲突）
+- `--no-hashes`：去掉 hash，兼容 pip
+
+### 第二步：在目标机器创建虚拟环境并安装
+
+```bash
+python -m venv .venv
+source .venv/bin/activate      # macOS / Linux
+# .venv\Scripts\activate       # Windows
+
+pip install -r requirements.txt
+pip install -e .               # 安装项目本身（可编辑模式）
+```
+
+### 第三步：配置并运行
+
+```bash
+cp .env.example .env  # 填写 GITLAB_TOKEN、GITLAB_URL、CR_MODEL、REPOS_DIR
+python -m adk.run --pr <MR_URL>
+```
 
 ## ADK Pipeline 流程
 
