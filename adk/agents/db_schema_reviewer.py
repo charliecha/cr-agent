@@ -28,6 +28,6 @@ db_schema_reviewer_agent = LlmAgent(
     model=LiteLlm(model=os.environ["CR_MODEL"], **litellm_kwargs()),
     output_key="db_schema_findings",
     tools=[FunctionTool(_file_read_tool), FunctionTool(_grep_tool)],
-    instruction=make_instruction(DB_SCHEMA_REVIEWER_INSTRUCTION, file_filter=[".sql", "migration/", "flyway/", "changelog/", "liquibase/"]),
+    instruction=make_instruction(DB_SCHEMA_REVIEWER_INSTRUCTION, file_filter=[".sql", "migration/", "flyway/", "changelog/", "liquibase/", "db/migrate/"]),
     before_agent_callback=make_domain_gate("db_schema"),
 )

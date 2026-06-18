@@ -170,7 +170,7 @@ Review for database schema and data contract problems:
 - Column type changes that break existing application-layer assumptions
 - API contract mismatches (field renamed or type changed between migration and entity/DTO)
 
-If there are no migration files (.sql, files in migration/flyway/changelog/liquibase paths, or @Entity schema changes), output: {{"findings": []}}
+If there are no migration files (.sql, files in migration/flyway/changelog/liquibase/db/migrate paths, or @Entity schema changes), output: {{"findings": []}}
 
 After completing all tool calls, output ONLY the JSON object below — no explanation text before or after it:
 {_FINDING_SCHEMA}
