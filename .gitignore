@@ -7,3 +7,4 @@ __pycache__/
 benchmark/results/
 *.egg-info/
 dist/
+.coverage
