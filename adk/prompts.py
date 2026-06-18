@@ -235,7 +235,7 @@ Check for the following:
 
 **Reactivity (Vue 3 Composition API)**
 - ref-value-misuse: watch(someRef.value, ...) passes snapshot not ref; .value in templates is redundant (auto-unwrap)
-- computed-side-effects: computed(() => ...) containing assignments, mutations (.push/.splice), await, or API calls
+- computed-side-effects: computed(() => ...) containing assignments, mutations (.push/.splice), await, or API calls → always category "vue_reactivity", never "logic_bug"
 
 **TypeScript Safety**
 - explicit-any: : any, as any, Array<any> on newly added code only
