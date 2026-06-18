@@ -43,7 +43,7 @@ REVIEWER_SPECS: list[ReviewerSpec] = [
     ReviewerSpec(
         domain="backend",
         instruction=prompts.BACKEND_REVIEWER_INSTRUCTION,
-        file_filter=[".kt", ".java", ".py", ".go", ".ts"],
+        file_filter=[".kt", ".java", ".py", ".go", ".ts", ".sql", "migration/", "flyway/", "changelog/", "liquibase/", "db/migrate/"],
     ),
     ReviewerSpec(
         domain="security",

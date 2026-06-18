@@ -190,7 +190,6 @@ Review ALL language hunks (Java, Kotlin, Python, Go, TypeScript, etc.) for backe
 - Missing database transactions around multi-step writes
 - N+1 query patterns (calling DB inside a loop)
 - API contract mismatches (field renamed or type changed on one side only)
-- Data contract mismatches between migration defaults and application-layer values (e.g. case mismatch between DEFAULT 'user' in SQL and Role.USER.name() = "USER" in Java)
 - Unhandled error returns (especially in Go)
 
 Do NOT report: SQL injection, auth/authz issues, hardcoded secrets (→ security reviewer), race conditions, missing mutex, thread-safety issues (→ concurrency reviewer).
