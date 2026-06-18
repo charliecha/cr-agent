@@ -10,7 +10,7 @@ def _parse_active_domains(value) -> list | None:
     """Parse active_domains from session state.
 
     Returns a list of domain strings on success, or None if parsing fails.
-    Callers must treat None as "unknown" — not as "empty".
+    Callers must treat None or [] as "unknown" — both trigger the fail-safe fallback.
     """
     if isinstance(value, list):
         return value
@@ -38,8 +38,8 @@ def make_domain_gate(domain: str):
     def _gate(callback_context):
         raw = callback_context.state.get("active_domains")
         active = _parse_active_domains(raw)
-        if active is None:
-            # Planner output invalid — let reviewer run (fail-safe)
+        if not active:
+            # Planner output invalid or empty — let reviewer run (fail-safe)
             return None
         if domain not in active:
             return types.Content(

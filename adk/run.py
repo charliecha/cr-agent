@@ -167,13 +167,11 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
     from adk.agents.registry import REVIEWER_SPECS
     raw_domains = state.get("active_domains")
     active_domains = _parse_active_domains(raw_domains)
-    if active_domains is None:
-        click.echo("[planner] WARNING: active_domains invalid or missing — all reviewers ran as fallback", err=True)
+    if not active_domains:
+        click.echo("[planner] WARNING: active_domains invalid or empty — all reviewers ran as fallback", err=True)
         active_domains = ALL_DOMAINS
-    elif active_domains:
-        click.echo(f"[planner] active_domains={active_domains} ({len(active_domains)}/7 reviewers active)", err=True)
     else:
-        click.echo("[planner] active_domains=[] (no reviewers active)", err=True)
+        click.echo(f"[planner] active_domains={active_domains} ({len(active_domains)}/7 reviewers active)", err=True)
 
     report = _merge(
         pr,
