@@ -164,6 +164,7 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
     )).state
 
     from adk.agents.gate import _parse_active_domains, ALL_DOMAINS
+    from adk.agents.registry import REVIEWER_SPECS
     raw_domains = state.get("active_domains")
     active_domains = _parse_active_domains(raw_domains)
     if active_domains is None:
@@ -176,13 +177,7 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
 
     report = _merge(
         pr,
-        android=state.get("android_findings"),
-        backend=state.get("backend_findings"),
-        security=state.get("security_findings"),
-        concurrency=state.get("concurrency_findings"),
-        caching=state.get("caching_findings"),
-        db_schema=state.get("db_schema_findings"),
-        frontend=state.get("frontend_findings"),
+        **{spec.domain: state.get(spec.output_key) for spec in REVIEWER_SPECS},
     )
     return report.findings
 

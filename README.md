@@ -73,6 +73,8 @@ python -m adk.run --pr <MR_URL>
 
 ## ADK Pipeline 流程
 
+架构改造建议见 [ADK_REFACTOR_PLAN.md](/Users/chazongxun/Documents/GitHub/cr-agent/ADK_REFACTOR_PLAN.md)。
+
 ```
 PR URL
   │

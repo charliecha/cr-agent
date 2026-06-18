@@ -4,17 +4,12 @@ root_agent: orchestrates the ADK CR pipeline.
 Flow:
   SequentialAgent:
     1. planner            — determines active_domains from diff_summary in session state
-    2. ParallelAgent([    — all specialists run concurrently; each gates on active_domains
-         android_reviewer,
-         backend_reviewer,
-         security_reviewer,
-         concurrency_reviewer,
-         caching_reviewer,
-         db_schema_reviewer,
-         frontend_reviewer,
+    2. ParallelAgent([    — all reviewers run concurrently; each gates on active_domains
+         ...reviewer_agents from registry
        ])
   diff_summary is pre-populated in session state by Python (parse_diff) before the runner starts.
   Findings are merged by Python code in run.py (no summarizer LLM call).
+  Reviewer agents are built from REVIEWER_SPECS in registry.py — add new reviewers there.
 
 NOTE: SequentialAgent and ParallelAgent are deprecated in google-adk 2.x
 in favor of Workflow+Edge API, but the Workflow API has known issues with
@@ -25,13 +20,7 @@ Revisit when google-adk stabilizes the Workflow+LlmAgent integration.
 import warnings
 
 from adk.agents.planner import planner_agent
-from adk.agents.android_reviewer import android_reviewer_agent
-from adk.agents.backend_reviewer import backend_reviewer_agent
-from adk.agents.security_reviewer import security_reviewer_agent
-from adk.agents.concurrency_reviewer import concurrency_reviewer_agent
-from adk.agents.caching_reviewer import caching_reviewer_agent
-from adk.agents.db_schema_reviewer import db_schema_reviewer_agent
-from adk.agents.frontend_reviewer import frontend_reviewer_agent
+from adk.agents.registry import reviewer_agents
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -39,15 +28,7 @@ with warnings.catch_warnings():
 
     _parallel_reviewers = ParallelAgent(
         name="parallel_reviewers",
-        sub_agents=[
-            android_reviewer_agent,
-            backend_reviewer_agent,
-            security_reviewer_agent,
-            concurrency_reviewer_agent,
-            caching_reviewer_agent,
-            db_schema_reviewer_agent,
-            frontend_reviewer_agent,
-        ],
+        sub_agents=reviewer_agents,
     )
 
     root_agent = SequentialAgent(
