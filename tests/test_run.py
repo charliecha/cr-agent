@@ -1,10 +1,11 @@
-"""Tests for adk/run.py — _filter_test_files, _parse_findings, _merge, _resolve_repo."""
+"""Tests for adk/run.py — helpers and mock integration coverage."""
 
 import json
-import os
 import pytest
 
 from shared.schemas import Severity
+from shared.git_client import PRInfo
+import adk.run as run_module
 from adk.run import _filter_test_files, _parse_findings, _merge, _resolve_repo
 
 
@@ -171,3 +172,168 @@ def test_resolve_unparseable_url_raises(monkeypatch, tmp_path):
     import click
     with pytest.raises(click.UsageError):
         _resolve_repo("http://no-dash-segment/1", None)
+
+
+# ── _run_batch / _run_adk mock integration ────────────────────────────────────
+
+
+class _FakeSession:
+    user_id = "ci"
+    id = "session-1"
+
+
+class _FakeStoredSession:
+    def __init__(self, state):
+        self.state = state
+
+
+def _make_fake_runner(state):
+    class _FakeSessionService:
+        def __init__(self):
+            self.created_state = None
+
+        async def create_session(self, app_name, user_id, state):
+            self.created_state = state
+            return _FakeSession()
+
+        async def get_session(self, app_name, user_id, session_id):
+            return _FakeStoredSession(state)
+
+    class _FakeRunner:
+        def __init__(self, agent, app_name):
+            self.agent = agent
+            self.app_name = app_name
+            self.session_service = _FakeSessionService()
+
+        async def run_async(self, user_id, session_id, new_message):
+            yield {"ok": True}
+
+    return _FakeRunner
+
+
+@pytest.mark.asyncio
+async def test_run_batch_skips_test_only_diff_without_runner(monkeypatch):
+    class _ExplodingRunner:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("Runner should not be created for test-only diffs")
+
+    monkeypatch.setattr("google.adk.runners.InMemoryRunner", _ExplodingRunner)
+    findings = await run_module._run_batch(
+        "http://mr/1",
+        "/repo",
+        "--- src/test/java/FooTest.kt\n@@ -1 +1 @@\n+x\n",
+    )
+    assert findings == []
+
+
+@pytest.mark.asyncio
+async def test_run_batch_uses_registry_outputs_and_fallbacks_on_empty_domains(monkeypatch, capsys):
+    warn = _f(severity="warning", description="warn")
+    crit = _f(severity="critical", description="crit")
+    state = {
+        "active_domains": "[]",
+        "android_findings": warn,
+        "backend_findings": crit,
+    }
+
+    monkeypatch.setattr("google.adk.runners.InMemoryRunner", _make_fake_runner(state))
+    findings = await run_module._run_batch(
+        "http://mr/1",
+        "/repo",
+        "--- src/Foo.kt\n+++ src/Foo.kt\n@@ -1 +1 @@\n+x\n",
+    )
+
+    assert len(findings) == 1
+    assert findings[0].severity == Severity.CRITICAL
+    captured = capsys.readouterr()
+    assert "all reviewers ran as fallback" in captured.err
+
+
+@pytest.mark.asyncio
+async def test_run_adk_local_reads_pr_diff_and_aggregates(monkeypatch, tmp_path):
+    repo = tmp_path
+    (repo / "pr.diff").write_text("--- src/Foo.kt\n+++ src/Foo.kt\n@@ -1 +1 @@\n+x\n")
+
+    async def fake_run_batch(pr, repo_path, batch):
+        assert pr == "LOCAL"
+        assert repo_path == str(repo)
+        assert "src/Foo.kt" in batch
+        return [_parse_findings(_f(severity="warning"))[0][0]]
+
+    monkeypatch.setattr(run_module, "_run_batch", fake_run_batch)
+    report, info = await run_module._run_adk("LOCAL", str(repo))
+
+    assert info.url == "LOCAL"
+    assert report.verdict == "request_changes"
+    assert len(report.findings) == 1
+
+
+@pytest.mark.asyncio
+async def test_run_adk_remote_checks_out_target_branch(monkeypatch, tmp_path):
+    commands = []
+
+    def fake_subprocess_run(cmd, cwd, check, capture_output):
+        commands.append((cmd, cwd, check, capture_output))
+
+    async def fake_run_batch(pr, repo_path, batch):
+        assert pr == "http://mr/1"
+        assert repo_path == str(tmp_path)
+        return []
+
+    info = PRInfo(
+        url="http://mr/1",
+        title="Title",
+        description="Desc",
+        diff="",
+        changed_files=[],
+        base_sha="base",
+        head_sha="head",
+        repo_full_name="group/project",
+        target_branch="main",
+    )
+
+    monkeypatch.setattr(run_module, "_run_batch", fake_run_batch)
+    monkeypatch.setattr("shared.git_client.get_pr_diff_batches", lambda pr: (info, ["batch-1"]))
+    monkeypatch.setattr("subprocess.run", fake_subprocess_run)
+
+    report, returned_info = await run_module._run_adk("http://mr/1", str(tmp_path))
+
+    assert returned_info is info
+    assert report.verdict == "approve"
+    assert commands == [
+        (["git", "fetch", "origin"], str(tmp_path), True, True),
+        (["git", "checkout", "main"], str(tmp_path), True, True),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_run_adk_remote_pulls_when_target_branch_missing(monkeypatch, tmp_path):
+    commands = []
+
+    def fake_subprocess_run(cmd, cwd, check, capture_output):
+        commands.append((cmd, cwd, check, capture_output))
+
+    async def fake_run_batch(pr, repo_path, batch):
+        return []
+
+    info = PRInfo(
+        url="http://mr/2",
+        title="Title",
+        description="Desc",
+        diff="",
+        changed_files=[],
+        base_sha="base",
+        head_sha="head",
+        repo_full_name="group/project",
+        target_branch="",
+    )
+
+    monkeypatch.setattr(run_module, "_run_batch", fake_run_batch)
+    monkeypatch.setattr("shared.git_client.get_pr_diff_batches", lambda pr: (info, ["batch-1"]))
+    monkeypatch.setattr("subprocess.run", fake_subprocess_run)
+
+    await run_module._run_adk("http://mr/2", str(tmp_path))
+
+    assert commands == [
+        (["git", "pull"], str(tmp_path), True, True),
+    ]
