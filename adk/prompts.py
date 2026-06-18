@@ -44,7 +44,7 @@ Available domains:
 Rules:
 - Include a domain only if the diff contains code that is directly relevant to it.
 - Always include at least one domain.
-- A PR adding or modifying Java/Kotlin/Python/Go/TypeScript code → always include "backend".
+- A PR with Java/Kotlin/Python/Go/TypeScript code changes that are not purely structural (renaming, formatting) → include "backend".
 - A PR touching Kotlin/Java Android UI code → include "android".
 - A PR touching SQL migrations or DB queries → include "db_schema" and/or "backend".
 - A PR touching auth, roles, permissions → include "security".
