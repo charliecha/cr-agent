@@ -20,7 +20,7 @@ from shared.schemas import CRReport, Finding, Severity
 from shared.git_client import post_inline_comment, upsert_mr_comment, post_inline_comment_gitlab, get_existing_inline_comments, PRInfo
 from shared.model_config import set_langfuse_context, token_counter
 
-_SEVERITY_RANK = {"critical": 2, "warning": 1, "info": 0}
+_SEVERITY_RANK = {Severity.CRITICAL: 2, Severity.WARNING: 1, Severity.INFO: 0}
 
 
 def _is_test_file(path: str) -> bool:
@@ -126,14 +126,6 @@ def _merge(pr_url: str, **domain_findings) -> CRReport:
     return CRReport(pr_url=pr_url, findings=findings, summary=summary, verdict=verdict)
 
 
-def _dedup_findings(findings: list[Finding]) -> list[Finding]:
-    seen: dict[tuple, Finding] = {}
-    for f in findings:
-        key = (f.file, f.line_start, f.category)
-        if key not in seen or _SEVERITY_RANK[f.severity] > _SEVERITY_RANK[seen[key].severity]:
-            seen[key] = f
-    return list(seen.values())
-
 
 async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
     from google.adk.runners import InMemoryRunner
@@ -223,7 +215,12 @@ async def _run_adk(pr: str, repo: str) -> tuple[CRReport, PRInfo]:
     for findings in results:
         all_findings.extend(findings)
 
-    findings = _dedup_findings(all_findings)
+    seen: dict[tuple, Finding] = {}
+    for f in all_findings:
+        key = (f.file, f.line_start, f.category)
+        if key not in seen or _SEVERITY_RANK[f.severity] > _SEVERITY_RANK[seen[key].severity]:
+            seen[key] = f
+    findings = list(seen.values())
 
     if any(f.severity == Severity.CRITICAL for f in findings):
         verdict = "block"
