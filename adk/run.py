@@ -159,7 +159,7 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
     raw_domains = state.get("active_domains")
     active_domains = _parse_active_domains(raw_domains)
     if active_domains:
-        click.echo(f"[planner] active_domains={active_domains} ({len(active_domains)}/6 reviewers active)", err=True)
+        click.echo(f"[planner] active_domains={active_domains} ({len(active_domains)}/7 reviewers active)", err=True)
     else:
         click.echo("[planner] WARNING: active_domains not found in state", err=True)
 
@@ -171,6 +171,7 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
         state.get("concurrency_findings"),
         state.get("caching_findings"),
         state.get("db_schema_findings"),
+        state.get("frontend_findings"),
     )
     return report.findings
 

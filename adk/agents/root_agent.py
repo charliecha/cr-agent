@@ -31,6 +31,7 @@ from adk.agents.security_reviewer import security_reviewer_agent
 from adk.agents.concurrency_reviewer import concurrency_reviewer_agent
 from adk.agents.caching_reviewer import caching_reviewer_agent
 from adk.agents.db_schema_reviewer import db_schema_reviewer_agent
+from adk.agents.frontend_reviewer import frontend_reviewer_agent
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -45,6 +46,7 @@ with warnings.catch_warnings():
             concurrency_reviewer_agent,
             caching_reviewer_agent,
             db_schema_reviewer_agent,
+            frontend_reviewer_agent,
         ],
     )
 

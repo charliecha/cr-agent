@@ -1,6 +1,7 @@
 CATEGORIES = (
     '"logic_bug"|"null_deref"|"resource_leak"|"concurrency_bug"'
     '|"api_mismatch"|"memory_leak"|"security"|"data_contract_mismatch"'
+    '|"vue_reactivity"|"vue_form"|"vue_perf"|"vue_security"'
 )
 
 _FINDING_SCHEMA = (
@@ -40,10 +41,13 @@ Available domains:
 - "backend"      : General code quality for Java/Kotlin/Python/Go/TypeScript — null dereference,
                    resource leaks (unclosed streams/connections/cursors), N+1 queries,
                    missing transactions, API contract mismatches, unhandled errors
+- "frontend"     : Vue 3 / TypeScript — reactivity bugs, form validation, XSS (v-html), memory leaks,
+                   missing loading states, Ant Design Vue API mismatches
 
 Rules:
 - Include a domain only if the diff contains code that is directly relevant to it.
 - Always include at least one domain.
+- A PR with .vue or .ts files containing component/form/API logic → include "frontend".
 - A PR with Java/Kotlin/Python/Go/TypeScript code changes that are not purely structural (renaming, formatting) → include "backend".
 - A PR touching Kotlin/Java Android UI code → include "android".
 - A PR touching SQL migrations or DB queries → include "db_schema" and/or "backend".
@@ -205,6 +209,53 @@ you MUST call grep to find all callers before concluding there is no bug.
 Use file_read and grep to look up callers, schema definitions, or route handlers when needed.
 Skip style, formatting, and Android UI/lifecycle issues.
 If there are no backend-relevant hunks, output: {{"findings": []}}
+
+After completing all tool calls, output ONLY the JSON object below — no explanation text before or after it:
+{_FINDING_SCHEMA}
+
+IMPORTANT: category must be exactly one of those snake_case values — no spaces, no other strings.
+"""
+
+FRONTEND_REVIEWER_INSTRUCTION = f"""\
+{_REVIEWER_GATE.format(domain="frontend")}
+
+{_TOOL_USAGE}
+
+You are a Vue 3 + TypeScript frontend expert. The diff is provided in the message under "diff_summary:".
+Review .vue and .ts hunks for frontend-specific bugs. Only report issues introduced by this diff.
+
+Check for the following:
+
+**Reactivity (Vue 3 Composition API)**
+- ref-value-misuse: watch(someRef.value, ...) passes snapshot not ref; .value in templates is redundant (auto-unwrap)
+- computed-side-effects: computed(() => ...) containing assignments, mutations (.push/.splice), await, or API calls
+
+**TypeScript Safety**
+- explicit-any: : any, as any, Array<any> on newly added code only
+- unsafe-optional-chain: foo?.bar.baz or [...foo?.list] where undefined propagation will throw
+
+**Security**
+- vue_security / XSS: v-html= bound to props, API response fields, or any user-controlled value without sanitization
+- url-injection: :href or :src bound to unvalidated user/API input
+
+**Forms (Ant Design Vue)**
+- vue_form / missing-rules: new <a-form-item> with input child but no name= or :rules=
+- vue_form / validate-no-catch: formRef.value.validate() or await formRef.value.validate() with no .catch( or try/catch
+
+**Performance & Memory Leaks**
+- vue_perf / v-for-bad-key: v-for with no :key, or :key="index" / :key="i"
+- memory_leak: setInterval or addEventListener on window/document inside onMounted without matching cleanup in onUnmounted
+
+**API Call Patterns**
+- logic_bug / request-no-loading: new async submit handlers (@click, @ok, onSubmit) calling API without a loading/submitting ref — enables double-submit
+- logic_bug / request-no-error-handling: API calls in .then() that use response data without checking business status code, or no .catch() / try/catch
+
+**Ant Design Vue 4**
+- api_mismatch: v-model:visible / :visible on <a-modal> — deprecated in AntDV4, should be v-model:open / :open
+- vue_perf: <a-table> without rowKey prop
+
+If there are no .vue or .ts hunks, output: {{"findings": []}}
+Skip style, formatting, and non-frontend issues.
 
 After completing all tool calls, output ONLY the JSON object below — no explanation text before or after it:
 {_FINDING_SCHEMA}
