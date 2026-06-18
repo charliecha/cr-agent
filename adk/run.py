@@ -300,7 +300,14 @@ def _post_findings(report: CRReport, info: PRInfo) -> None:
         if f.file in existing:
             skipped += 1
             continue
-        comment = f"<!-- cr-agent-inline -->\n**[{f.severity}] {f.category}**\n\n{f.description}\n\n> {f.suggestion}"
+        sev = f.severity.value
+        icon = _SEV_ICON.get(sev, "")
+        comment = (
+            f"<!-- cr-agent-inline -->\n"
+            f"{icon} **[{sev}] {f.category}**\n\n"
+            f"{f.description}\n\n"
+            f"**🔧 Fix:** {f.suggestion}"
+        )
         try:
             ok = post_inline_comment_gitlab(report.pr_url, f.file, f.line_start, comment, info)
             if ok:
@@ -314,24 +321,31 @@ def _post_findings(report: CRReport, info: PRInfo) -> None:
     )
 
 
+_SEV_ICON = {"critical": "🔴", "warning": "🟡", "info": "🔵"}
+_SEV_ORDER = {"critical": 0, "warning": 1, "info": 2}
+
+
 def _format_mr_comment(report: CRReport) -> str:
     verdict_icon = {"approve": "✅", "request_changes": "⚠️", "block": "🚫"}.get(report.verdict, "")
     lines = [
         f"## {verdict_icon} CR Agent Review",
         "",
-        f"**Verdict:** `{report.verdict}`",
-        f"**Summary:** {report.summary}",
+        f"**Verdict:** `{report.verdict}`  **Summary:** {report.summary}",
     ]
     if report.findings:
+        sorted_findings = sorted(report.findings, key=lambda f: _SEV_ORDER.get(f.severity.value, 9))
         lines += [
             "",
-            "| File | Line | Severity | Category | Description |",
-            "|------|------|----------|----------|-------------|",
+            "| File | Line | Severity | Category | Description | Suggestion |",
+            "|------|------|----------|----------|-------------|------------|",
         ]
-        for f in report.findings:
-            desc = f.description.replace("|", "\\|")
+        for f in sorted_findings:
+            sev = f.severity.value
+            icon = _SEV_ICON.get(sev, "")
+            desc = f.description.replace("|", "\\|")[:120]
+            sugg = f.suggestion.replace("|", "\\|")[:80]
             lines.append(
-                f"| `{f.file}` | {f.line_start} | {f.severity} | {f.category} | {desc} |"
+                f"| `{f.file}` | {f.line_start} | {icon} {sev} | {f.category} | {desc} | {sugg} |"
             )
     return "\n".join(lines)
 
