@@ -84,12 +84,18 @@ def _make_tools(domain: str) -> Sequence:
 
 
 def build_reviewer_agent(spec: ReviewerSpec) -> LlmAgent:
+    # Patch tool names in the prompt to match actual registered names (file_read_<domain> / grep_<domain>)
+    patched = (
+        spec.instruction
+        .replace("file_read(", f"file_read_{spec.domain}(")
+        .replace("grep(", f"grep_{spec.domain}(")
+    )
     return LlmAgent(
         name=spec.agent_name,
         model=LiteLlm(model=os.environ["CR_MODEL"], **litellm_kwargs()),
         output_key=spec.output_key,
         tools=_make_tools(spec.domain),
-        instruction=make_instruction(spec.instruction, file_filter=spec.file_filter or None),
+        instruction=make_instruction(patched, file_filter=spec.file_filter or None),
         before_agent_callback=make_domain_gate(spec.domain),
     )
 
