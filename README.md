@@ -12,11 +12,30 @@ uv sync
 cp .env.example .env  # 填写 GITLAB_TOKEN、GITLAB_URL、CR_MODEL、REPOS_DIR
 
 # 运行（指定 repo）
-python -m adk.run --pr <MR_URL> --repo <本地仓库路径>
+uv run python -m adk.run --pr <MR_URL> --repo <本地仓库路径>
 
 # 运行（配置 REPOS_DIR 后可省略 --repo，自动从 PR URL 推断项目名）
-python -m adk.run --pr https://gitlab.shalltry.com/inputmethod/latincore/-/merge_requests/78
+uv run python -m adk.run --pr https://gitlab.shalltry.com/inputmethod/latincore/-/merge_requests/78
 ```
+
+### uv 虚拟环境切换
+
+`uv sync` 会自动在项目根目录创建 `.venv`，后续命令有两种方式使用该环境：
+
+```bash
+# 方式一：uv run 前缀（推荐，无需手动激活）
+uv run python -m adk.run --pr <MR_URL>
+
+# 方式二：手动激活 .venv
+source .venv/bin/activate   # macOS / Linux
+.venv\Scripts\activate      # Windows
+
+python -m adk.run --pr <MR_URL>
+
+deactivate  # 退出 .venv
+```
+
+> **注意**：项目依赖在 `.venv` 内，系统 Python 或其他虚拟环境中直接运行会报 `ModuleNotFoundError`。
 
 **`REPOS_DIR` 自动检测规则**：从 PR URL 提取项目名（`latincore`），拼接为 `$REPOS_DIR/latincore`。目录名须与 GitLab 项目名一致。
 
