@@ -60,35 +60,47 @@ def _filter_test_files(diff_content: str) -> str:
     return '\n'.join(result)
 
 
-def _parse_findings(raw) -> list[Finding]:
+def _parse_findings(raw, domain: str = "") -> tuple[list[Finding], bool]:
+    """Parse reviewer output. Returns (findings, ok) where ok=False means invalid output."""
+    if raw is None:
+        return [], True  # reviewer was gated/skipped — not an error
     if isinstance(raw, str):
+        if raw.strip() == '{"findings": []}':
+            return [], True  # gated output
         start = raw.find('{"findings"')
         if start == -1:
             start = raw.find('{ "findings"')
         if start == -1:
-            return []
+            if domain:
+                click.echo(f"[adk] WARNING: {domain} reviewer output has no findings key — treating as invalid", err=True)
+            return [], False
         end = raw.rfind("}")
         if end <= start:
-            return []
+            if domain:
+                click.echo(f"[adk] WARNING: {domain} reviewer output malformed JSON — treating as invalid", err=True)
+            return [], False
         try:
             raw = json.loads(raw[start:end + 1])
         except Exception:
-            return []
+            if domain:
+                click.echo(f"[adk] WARNING: {domain} reviewer output JSON parse error — treating as invalid", err=True)
+            return [], False
     if not isinstance(raw, dict):
-        return []
+        return [], False
     findings = []
     for f in raw.get("findings", []):
         try:
             findings.append(Finding(**f))
         except Exception:
             continue
-    return findings
+    return findings, True
 
 
-def _merge(pr_url: str, *raw_findings) -> CRReport:
+def _merge(pr_url: str, **domain_findings) -> CRReport:
     all_findings = []
-    for raw in raw_findings:
-        all_findings.extend(_parse_findings(raw))
+    for domain, raw in domain_findings.items():
+        findings, _ = _parse_findings(raw, domain=domain)
+        all_findings.extend(findings)
 
     seen: dict[tuple, Finding] = {}
     for f in all_findings:
@@ -159,23 +171,26 @@ async def _run_batch(pr: str, repo: str, diff_content: str) -> list[Finding]:
         app_name="cr_root", user_id="ci", session_id=session.id
     )).state
 
-    from adk.agents.gate import _parse_active_domains
+    from adk.agents.gate import _parse_active_domains, ALL_DOMAINS
     raw_domains = state.get("active_domains")
     active_domains = _parse_active_domains(raw_domains)
-    if active_domains:
+    if active_domains is None:
+        click.echo("[planner] WARNING: active_domains invalid or missing — all reviewers ran as fallback", err=True)
+        active_domains = ALL_DOMAINS
+    elif active_domains:
         click.echo(f"[planner] active_domains={active_domains} ({len(active_domains)}/7 reviewers active)", err=True)
     else:
-        click.echo("[planner] WARNING: active_domains not found in state", err=True)
+        click.echo("[planner] active_domains=[] (no reviewers active)", err=True)
 
     report = _merge(
         pr,
-        state.get("android_findings"),
-        state.get("backend_findings"),
-        state.get("security_findings"),
-        state.get("concurrency_findings"),
-        state.get("caching_findings"),
-        state.get("db_schema_findings"),
-        state.get("frontend_findings"),
+        android=state.get("android_findings"),
+        backend=state.get("backend_findings"),
+        security=state.get("security_findings"),
+        concurrency=state.get("concurrency_findings"),
+        caching=state.get("caching_findings"),
+        db_schema=state.get("db_schema_findings"),
+        frontend=state.get("frontend_findings"),
     )
     return report.findings
 
