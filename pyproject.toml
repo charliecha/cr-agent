@@ -37,7 +37,10 @@ line-length = 100
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "--cov=adk --cov-report=term-missing --cov-fail-under=80 -m 'not smoke'"
+addopts = "--cov=adk --cov-report=term-missing -m 'not smoke'"
+
+[tool.coverage.report]
+fail_under = 80
 markers = [
     "smoke: end-to-end tests that call real LLM APIs (run with: pytest -m smoke)",
 ]
